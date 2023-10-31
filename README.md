@@ -21,12 +21,14 @@ Activate the environment to use the workflow.
 
 `conda activate rnn-environment`
 
-Run workflow 
-
-`snakemake --cores 4`
 
 ### Getting started with own input files
-To run the network on your own virus dataset, you will need to provide all the accession numbers to your sequences in the form of a csv file as the input to our data parsing workflow.
+To run the network on your own virus dataset, you will need to provide all the metadata (GenBank Accession Numbers) to your sequences in the form of a csv file as the input to our data parsing workflow.
+Download the virus metadata off of the [BV-BRC Database](https://www.bv-brc.org/). Rename the resulting CSV file as 'all-sequences-metadata.csv' and drop into the 'data' folder. Drop your reference sequence fasta file into the 'data' folder and name it as 'reference-sequence.fasta'.
+
+Run workflow 
+
+`./data-processing-pipeline.sh`
 
 ## Data Curation
 All sequence data is from Genbank. We filtered for human coronavirus genomes that are at least 80% complete. 
