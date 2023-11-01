@@ -31,6 +31,7 @@ Run workflow for Mac Users
 `python csv-splitting-script.py; python accession-grabbing-script.py; ./alignment-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
 
 Run workflow for Windows Users
+
 `python csv-splitting-script.py; python accession-grabbing-script.py; dos2unix alignment_script.sh; ./alignment-script.sh; dos2unix gene-parse-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
 
 Alternatively, if you already have the list of accessions, you can forgo some of the above steps for an expedited pipeline. 
@@ -40,6 +41,7 @@ Run expedited workflow for Mac Users
 `./alignment-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
 
 Run expedited workflow for Windows Users
+
 `dos2unix alignment_script.sh; ./alignment-script.sh; dos2unix gene-parse-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
 
 <p align="center">
