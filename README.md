@@ -43,7 +43,7 @@ Run expedited workflow for Windows Users
 `dos2unix alignment_script.sh; ./alignment-script.sh; dos2unix gene-parse-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
 
 <p align="center">
-     <img src="images/data-processing-workflow.png" alt="workflow diagram for data processing steps" width="300"/>
+     <img src="images/data-processing-workflow.png" alt="workflow diagram for data processing steps" width="600"/>
 </p>
 
 ## Data Curation
