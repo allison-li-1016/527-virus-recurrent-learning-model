@@ -59,15 +59,19 @@ if args.gene[0].lower() != 'genome':
 
     #parsing and concatenating sequences, does not write strands that are sequenced below given percentage
     fasta_sequences = SeqIO.parse(open(args.alignment),'fasta')
+    #skip reference sequence
+    first = True
     for record in fasta_sequences:
-        for gene in genes.keys():
-            if not gene in sequences:
-                sequences[gene]  = ""
-            seq = genes[gene].extract(record.seq)
-            #calculate if percent of Ns is less than percentage
-            if (seq.lower().count('n')/len([x for x in seq if x.isalpha()]) <= args.percentage[0]):
-                new_gene = sequences[gene]  + ">" + record.id + "\n" + seq + "\n"
-                sequences[gene] = new_gene
+        if not first:
+            for gene in genes.keys():
+                if not gene in sequences:
+                    sequences[gene]  = ""
+                seq = genes[gene].extract(record.seq)
+                #calculate if percent of Ns is less than percentage
+                if (seq.lower().count('n')/len([x for x in seq if x.isalpha()]) <= args.percentage[0]):
+                    new_gene = sequences[gene]  + ">" + record.id + "\n" + seq + "\n"
+                    sequences[gene] = new_gene
+        first = False
 
     #write sequences to output files
     for file in output_files.keys():
@@ -87,5 +91,5 @@ else:
         #calculate if percent of Ns is less than percentage
         if (seq.lower().count('n')/len([x for x in seq if x.isalpha()]) <= args.percentage[0]):
             long_seq = long_seq  + ">" + record.id + "\n" + seq + "\n"
-    #write to output file
+        #write to output file
     output_file.write(str(long_seq))
