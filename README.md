@@ -26,9 +26,25 @@ Activate the environment to use the workflow.
 To run the network on your own virus dataset, you will need to provide all the metadata (GenBank Accession Numbers) to your sequences in the form of a csv file as the input to our data parsing workflow.
 Download the virus metadata off of the [BV-BRC Database](https://www.bv-brc.org/). Rename the resulting CSV file as 'all-sequences-metadata.csv' and drop into the 'data' folder. Drop your reference sequence fasta and GenBank file into the 'data' folder and name it as 'reference-sequence.fasta' and 'reference-sequence.gb' respectively.
 
-Run workflow 
+Run workflow for Mac Users
 
-`./data-processing-pipeline.sh`
+`python csv-splitting-script.py; python accession-grabbing-script.py; ./alignment-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
+
+Run workflow for Windows Users
+`python csv-splitting-script.py; python accession-grabbing-script.py; dos2unix alignment_script.sh; ./alignment-script.sh; dos2unix gene-parse-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
+
+Alternitavely, if you already have the list of accessions, you can forgo some of the above steps for an expedited pipeline. 
+
+Run expedited workflow for Mac Users
+
+`./alignment-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
+
+Run expedited workflow for Windows Users
+`dos2unix alignment_script.sh; ./alignment-script.sh; dos2unix gene-parse-script.sh; ./gene-parse-script.sh; python codon-parsing-script.py`
+
+<p align="center">
+     <img src="images/data-processing-workflow.png" alt="workflow diagram for data processing steps" width="300"/>
+</p>
 
 ## Data Curation
 All sequence data is from Genbank. We filtered for human coronavirus genomes that are at least 80% complete. 
