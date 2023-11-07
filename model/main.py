@@ -43,6 +43,7 @@ def main():
         loss, accuracy, avg_loss= model.eval(model, optimizer, criterion, test_x, test_y)
 
         if loss < best_loss:
+            best_loss = loss
             best_params = (lt,hls)
 
         # Print stats
