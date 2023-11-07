@@ -68,7 +68,7 @@ class RNNModel:
                 outputs = self.forward(x_val)
                 loss = criterion(x_val,y_val)
                 test_loss += loss.item()
-                _, predicted = torch.argmax(outputs, dim=1)
+                predicted = torch.argmax(outputs, dim=1)
                 total += y.size(0)
                 correct += (predicted == y_val).sum().item()
             test_loss /= len(x)
