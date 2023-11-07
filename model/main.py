@@ -28,6 +28,8 @@ def main():
     # Grid search 
     layer_types = ["LSTM", "GRU"]
     hidden_layer_sizes = [128, 256, 512]
+    best_params = ()
+    best_loss = 1000000000
     
     for (lt, hls) in itertools.product(layer_types, hidden_layer_sizes):
         # Define model 
@@ -39,6 +41,9 @@ def main():
         model.train(optimizer, criterion, n_epochs, train_x, train_y)
         # Validation data
         loss, accuracy, avg_loss= model.eval(model, optimizer, criterion, test_x, test_y)
+
+        if loss < best_loss:
+            best_params = (lt,hls)
 
         # Print stats
         print(str(lt) + " accuracy: " + str(accuracy))
