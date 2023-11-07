@@ -40,7 +40,7 @@ def main():
         #Train model 
         model.train(optimizer, criterion, n_epochs, train_x, train_y)
         # Validation data
-        loss, accuracy, avg_loss= model.eval(model, optimizer, criterion, test_x, test_y)
+        loss, accuracy, avg_loss= model.eval(model, optimizer, criterion, n_epochs, test_x, test_y)
 
         if loss < best_loss:
             best_loss = loss
