@@ -66,7 +66,7 @@ class CodonLoader:
         for codon_sequence in codon_list:
             encoded_codon_sequence = []
             for codon in codon_sequence:
-                encoded_codon = encoder.transform([[codon]]).toarray()
+                encoded_codon = encoder.transform([[codon]]).toarray()[0]
                 encoded_codon_sequence.append(encoded_codon)
             encoded_codons.append(encoded_codon_sequence)
 

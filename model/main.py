@@ -10,15 +10,13 @@ import matplotlib.pyplot as plt
 def main():
     # load codon data for model
     path = "../data/resulting-codons.txt"
-    codon_loader = CodonLoader(path, num_samples=10, test_split=0.2)
+    codon_loader = CodonLoader(path, num_samples=100, test_split=0.2)
     train_data = codon_loader.get_train_data()
     val_data = codon_loader.get_val_data()
     test_data = codon_loader.get_test_data()
 
     # Load data from pkl file
-    codon_loader.save_encoded_data()
-
-    print(train_data[0])
+    # codon_loader.save_encoded_data()
     # print(data["train_data"][0])
 
     # creating offset between x and y sequences
@@ -31,11 +29,11 @@ def main():
     n_epochs = 100
     lr = 0.01
 
-    # Grid search 
-    #layer_types = ["LSTM", "GRU", "RNN"]
-    #hidden_layer_sizes = [128, 256, 512]
-    layer_types = ["LSTM"]
-    hidden_layer_sizes = [2]
+    # Grid search
+    # layer_types = ["LSTM", "GRU", "RNN"]
+    # hidden_layer_sizes = [128, 256, 512]
+    layer_types = ["RNN"]
+    hidden_layer_sizes = [64]
     best_params = ()
     best_loss = 1000000000
 
@@ -57,7 +55,7 @@ def main():
         # Print stats
         print(str(lt) + " accuracy: " + str(accuracy))
         print(str(lt) + " loss: " + str(loss))
-    
+
         # plotting loss per epoch
         plt.plot(avg_loss)
         plt.xlabel("Epoch")
