@@ -21,17 +21,11 @@ def main():
     print(train_data[0])
     # print(data["train_data"][0])
 
-    return
     # creating offset between x and y sequences
     # so that each token is predicting the next token
     train_X, train_y = parse_data(train_data)
     val_X, val_y = parse_data(val_data)
     test_X, test_y = parse_data(test_data)
-
-    # print(train_data[0])
-
-    # codon_loader.save_encoded_data()
-    return
 
     # Pretraining masking random codons
     # masked_codons = codon_loader.mask(train_data, 0.1)
@@ -48,14 +42,14 @@ def main():
 
     for lt, hls in itertools.product(layer_types, hidden_layer_sizes):
         # Define model
-        model = RNNModel(lt, len(train_x), len(train_y), len(train_x[0]), hls)
+        model = RNNModel(lt, len(train_X), len(train_y), len(train_X[0]), hls)
         # Define Loss, Optimizer
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         # Train model
-        model.train(optimizer, criterion, n_epochs, train_x, train_y)
+        model.train(optimizer, criterion, n_epochs, train_X, train_y)
         # Validation data
-        loss, accuracy, avg_loss = model.eval(model, optimizer, criterion, n_epochs, test_x, test_y)
+        loss, accuracy, avg_loss = model.eval(model, optimizer, criterion, n_epochs, test_X, test_y)
 
         if loss < best_loss:
             best_loss = loss
