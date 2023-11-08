@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 def main():
     # load codon data for model
-    path = "data/resulting-codons.txt"
+    path = "../data/resulting-codons.txt"
     codon_loader = CodonLoader(path, test_split=0.2)
     train_data = codon_loader.get_train_data() 
     test_data = codon_loader.get_test_data()
@@ -18,16 +18,15 @@ def main():
     train_x, train_y = parse_data(train_data)
     test_x, test_y = parse_data(test_data)
 
-    # Pretraining masking random codons
-    # masked_codons = codon_loader.mask(train_data, 0.1)
-
     # Define hyperparameters
     n_epochs = 100
     lr=0.01
 
     # Grid search 
-    layer_types = ["LSTM", "GRU"]
-    hidden_layer_sizes = [128, 256, 512]
+    #layer_types = ["LSTM", "GRU", "RNN"]
+    #hidden_layer_sizes = [128, 256, 512]
+    layer_types = ["LSTM"]
+    hidden_layer_sizes = [1]
     best_params = ()
     best_loss = 1000000000
     
@@ -50,7 +49,7 @@ def main():
         print(str(lt) + " accuracy: " + str(accuracy))
         print(str(lt) + " loss: " + str(loss))
     
-        # plotting avg-loss
+        # plotting loss per epoch
         plt.plot(avg_loss)
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
