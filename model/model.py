@@ -2,43 +2,57 @@ import torch
 import torch.nn as nn
 
 # Seq to seq model
-class RNNModel:
-    #would be nice to be able to pass in RNN type as parameter too
+class RNNModel(nn.Module):
     def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers):
-        #super simple LSTM model 
         super(RNNModel, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
         #defining layers
-        self.rnn = layer_type(input_size, hidden_dim, n_layers)  
+        print("input size: " + str(input_size))
+        print("hidden size: " + str(hidden_dim))
+        print("n layers: " + str(n_layers))
+        if layer_type == "GRU":
+            self.rnn = nn.GRU(input_size, hidden_dim, n_layers) 
+        if layer_type == "LSTM":
+            self.rnn = nn.LSTM(input_size, hidden_dim, n_layers)
+        else:
+            #default vanilla rnn
+            self.rnn = nn.RNN(input_size, hidden_dim, n_layers) 
         #fully connected layer -> connect network to output labels
         self.fc = nn.Linear(hidden_dim, output_size)
     
     def forward(self, x):
         
+        x = torch.FloatTensor(x)
         batch_size = x.size(0)
 
         #Initializing hidden state for first input 
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
 
+        print(x.shape)
+        print(hidden.shape)
+
         # Passing in the input and hidden state into the model and obtaining outputs
-        out, hidden = self.rnn(x, hidden)
+        out, hidden_n = self.rnn(x, hidden)
         
         # Reshaping the outputs such that it can be fit into the fully connected layer
         # -1 is n of original output tensor, second dimension is the same as the hidden layer
 
         #this might need to be deleted if its many to many
-        out = out.contiguous().view(-1, self.hidden_dim)
+        #out = out.contiguous().view(-1, self.hidden_dim)
+        
         out = self.fc(out)
 
         # return output layer and hidden state (for training and RNN optimization)
         return out, hidden 
 
     def train(self,optimizer, criterion, epochs,x,y):
+        x = torch.FloatTensor(x)
+        y = torch.FloatTensor(y)
         epoch_losses = []
         for epoch in range(1, epochs + 1):
             optimizer.zero_grad() # Clears existing gradients from previous epoch
-            output, hidden = self.forward(x)
+            output, hidden = self(x)
             loss = criterion(output, y.view(-1).long())
             loss.backward() # Does backpropagation and calculates gradients
             epoch_losses.append(loss.item())
@@ -57,6 +71,8 @@ class RNNModel:
         return epoch_losses
     
     def eval(self,optimizer, criterion, epochs, x, y):
+        x = torch.FloatTensor(x)
+        y = torch.FloatTensor(y)
         # train and get per epoch losses
         avg_loss = self.train(optimizer, criterion, epochs, x, y)
         # accuracy and loss on test set
@@ -65,7 +81,7 @@ class RNNModel:
         total = 0
         with torch.no_grad():
             for x_val, y_val in zip(x,y):
-                outputs = self.forward(x_val)
+                outputs = self(x_val)
                 loss = criterion(x_val,y_val)
                 test_loss += loss.item()
                 predicted = torch.argmax(outputs, dim=1)

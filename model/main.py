@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 def main():
     # load codon data for model
     path = "../data/resulting-codons.txt"
-    codon_loader = CodonLoader(path, num_samples=100, test_split=0.2)
+    codon_loader = CodonLoader(path, num_samples=10, test_split=0.2)
     train_data = codon_loader.get_train_data()
     val_data = codon_loader.get_val_data()
     test_data = codon_loader.get_test_data()
@@ -35,13 +35,13 @@ def main():
     #layer_types = ["LSTM", "GRU", "RNN"]
     #hidden_layer_sizes = [128, 256, 512]
     layer_types = ["LSTM"]
-    hidden_layer_sizes = [1]
+    hidden_layer_sizes = [2]
     best_params = ()
     best_loss = 1000000000
 
     for lt, hls in itertools.product(layer_types, hidden_layer_sizes):
         # Define model
-        model = RNNModel(lt, len(train_X), len(train_y), len(train_X[0]), hls)
+        model = RNNModel(lt, len(train_X[0][0]), len(train_y[0][0]), hls, 1)
         # Define Loss, Optimizer
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
