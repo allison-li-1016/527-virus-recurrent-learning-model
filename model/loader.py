@@ -1,5 +1,8 @@
 import random
+import itertools
+import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder
 
 
 class CodonLoader:
@@ -21,6 +24,15 @@ class CodonLoader:
             codon_data = [codon.split(",") for codon in codon_data]
             # Remove empty codon at the end of each list
             codon_data = [codon[:-1] for codon in codon_data]
+            # Remove start codon at the beginning of each list
+            codon_data = [codon[1:] for codon in codon_data]
+            # Replace any codon with N in it with NNN
+            codon_data = [
+                [codon if "N" not in codon else "NNN" for codon in codon_sequence]
+                for codon_sequence in codon_data
+            ]
+            # Encode codons as one-hot vectors
+            codon_data = self._encode_one_hot(codon_data)
         return codon_data
 
     def _split_data(self):
@@ -31,6 +43,24 @@ class CodonLoader:
             X, y, test_size=self.test_split, random_state=self.random_state
         )
         return X_train, X_test
+
+    def _encode_one_hot(self, codon_list):
+        nucleotides = ["A", "C", "G", "T"]
+        # Encode codons as one-hot vectors
+        possible_codons = ["".join(x) for x in list(itertools.product(nucleotides, repeat=3))]
+        encoder = OneHotEncoder(categories=[possible_codons], handle_unknown="ignore")
+        # Flatten data to train encoder
+        flat_codon_list = [codon for codon_sequence in codon_list for codon in codon_sequence]
+        encoder.fit([[codon] for codon in flat_codon_list])
+        encoded_codons = []
+        for codon_sequence in codon_list:
+            encoded_codon_sequence = []
+            for codon in codon_sequence:
+                encoded_codon = encoder.transform([[codon]]).toarray()
+                encoded_codon_sequence.append(encoded_codon)
+            encoded_codons.append(encoded_codon_sequence)
+
+        return encoded_codons
 
     def get_train_data(self):
         return self.train_data
@@ -52,13 +82,7 @@ class CodonLoader:
         return masked_codons
 
 
-file_path = "../data/resulting-codons.txt"
-codon_loader = CodonLoader(file_path, test_split=0.2)
-train_data = codon_loader.get_train_data()
-test_data = codon_loader.get_test_data()
-
-# Example printing the sizes of the training and test data:
-print(f"Training data size: {len(train_data)}")
-print(f"Test data size: {len(test_data)}")
-masked_codons = codon_loader.random_mask(train_data, 0.5)
-print(masked_codons[0])
+# file_path = "../data/resulting-codons.txt"
+# codon_loader = CodonLoader(file_path, test_split=0.2)
+# train_data = codon_loader.get_train_data()
+# test_data = codon_loader.get_test_data()
