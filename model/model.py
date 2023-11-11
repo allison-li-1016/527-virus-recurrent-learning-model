@@ -10,14 +10,12 @@ class RNNModel(nn.Module):
         super(RNNModel, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
+        self.layer_type = layer_type
         # defining layers
-        print("input size: " + str(input_size))
-        print("hidden size: " + str(hidden_dim))
-        print("n layers: " + str(n_layers))
         if layer_type == "GRU":
-            self.rnn = nn.GRU(input_size, hidden_dim, n_layers)
+            self.rnn = nn.GRU(input_size, hidden_dim, n_layers, batch_first=True)
         if layer_type == "LSTM":
-            self.rnn = nn.LSTM(input_size, hidden_dim, n_layers)
+            self.rnn = nn.LSTM(input_size, hidden_dim, n_layers, batch_first=True)
         else:
             # default vanilla rnn
             self.rnn = nn.RNN(input_size, hidden_dim, n_layers, batch_first=True)
@@ -25,12 +23,15 @@ class RNNModel(nn.Module):
         self.fc = nn.Linear(hidden_dim, output_size)
 
     def forward(self, x):
-        x = np.array(x)
-        x = torch.FloatTensor(x)
         batch_size = x.size(0)
 
         # Initializing hidden state for first input
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
+
+        # Special case for LSTM
+        if self.layer_type == "LSTM":
+            c0 = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
+            hidden = (hidden, c0)
 
         # Passing in the input and hidden state into the model and obtaining outputs
         out, hidden_n = self.rnn(x, hidden)
@@ -38,61 +39,56 @@ class RNNModel(nn.Module):
         # Reshaping the outputs such that it can be fit into the fully connected layer
         # -1 is n of original output tensor, second dimension is the same as the hidden layer
 
-        # this might need to be deleted if its many to many
-        # out = out.contiguous().view(-1, self.hidden_dim)
-
         # Take the last output of the sequence
-        # out = out[:, -1, :]
+        #out = out[:, -1, :]
 
-        # out = self.fc(out)
+        out = self.fc(out)
 
         # return output layer and hidden state (for training and RNN optimization)
         return out, hidden_n
 
-    def train(self, optimizer, criterion, epochs, x, y):
-        x = np.array(x)
-        y = np.array(y)
-        x = torch.FloatTensor(x)
-        y = torch.FloatTensor(y)
+    def train(self, optimizer, criterion, epochs, train_loader):
         epoch_losses = []
         for epoch in range(1, epochs + 1):
-            optimizer.zero_grad()  # Clears existing gradients from previous epoch
-            output, hidden = self(x)
-            loss = criterion(output, y)
-            loss.backward()  # Does backpropagation and calculates gradients
-            epoch_losses.append(loss.item())
-            optimizer.step()  # Updates the weights accordingly
+            epoch_loss = 0
+            for x,y in train_loader:
+                optimizer.zero_grad()  # Clears existing gradients from previous epoch
+                output, hidden = self(x)
+                loss = criterion(output, y)
+                loss.backward()  # Does backpropagation and calculates gradients
+                epoch_loss += loss.item()
+                optimizer.step()  # Updates the weights accordingly
 
-            # Calculate accuracy
-            predicted_labels = torch.argmax(output, dim=0)
-            correct_predictions = (predicted_labels == y).sum().item()
-            total_samples = y.size(0)
-            accuracy = correct_predictions / total_samples
-
+                # Calculate accuracy
+                predicted_labels = torch.argmax(output, dim=0)
+                correct_predictions = (predicted_labels == y).sum().item()
+                total_samples = np.prod(np.array(y.shape))  
+                accuracy = correct_predictions / total_samples
+            epoch_losses.append(epoch_loss/len(train_loader))
             if epoch % 10 == 0:
                 print("Epoch: {}/{}.............".format(epoch, epochs), end=" ")
                 print("Loss: {:.4f}, Accuracy: {:.2f}%".format(loss.item(), accuracy * 100))
+                print("correct labels: " + str(correct_predictions))
+                print("total samples: " + str(total_samples))
 
         return epoch_losses
 
-    def eval(self, optimizer, criterion, epochs, x, y):
-        x = torch.FloatTensor(x)
-        y = torch.FloatTensor(y)
+    def eval(self, optimizer, criterion, epochs, data_loader):
         # train and get per epoch losses
-        avg_loss = self.train(optimizer, criterion, epochs, x, y)
+        avg_loss = self.train(optimizer, criterion, epochs, data_loader)
         # accuracy and loss on test set
         test_loss = 0.0
         correct = 0
         total = 0
         with torch.no_grad():
-            for x_val, y_val in zip(x, y):
-                outputs = self(x_val)
-                loss = criterion(x_val, y_val)
+            for x,y in data_loader:
+                outputs, hidden= self(x)
+                loss = criterion(outputs, y)
                 test_loss += loss.item()
-                predicted = torch.argmax(outputs, dim=1)
-                total += y.size(0)
-                correct += (predicted == y_val).sum().item()
-            test_loss /= len(x)
-            test_accuracy = correct / total
+                predicted = torch.argmax(outputs, dim=0)
+                total += np.prod(np.array(y.shape))  
+                correct += (predicted == y).sum().item()
+                test_loss /= len(x)
+                test_accuracy = correct / total
 
         return test_loss, test_accuracy, avg_loss

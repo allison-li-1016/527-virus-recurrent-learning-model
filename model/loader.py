@@ -7,7 +7,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 
 class CodonLoader:
-    def __init__(self, file_path, num_samples=10000, test_split=0.2, random_state=42):
+    def __init__(self, file_path, num_samples=100, test_split=0.2, random_state=42):
         self.file_path = file_path
         self.test_split = test_split
         self.random_state = random_state
@@ -111,6 +111,8 @@ class CodonLoader:
                     masked_codon.append(codon)
             masked_codons.append(masked_codon)
         return masked_codons
+    
+    
 
 
 # file_path = "../data/resulting-codons.txt"
