@@ -12,7 +12,7 @@ import numpy as np
 def main():
     # load codon data for model
     path = "../data/resulting-codons.txt"
-    codon_loader = CodonLoader(path, num_samples=1000, test_split=0.2)
+    codon_loader = CodonLoader(path, num_samples=5, test_split=0.2)
     # creating offset between x and y sequences
     # so that each token is predicting the next token
     train_data = parse_data(codon_loader.get_train_data())
@@ -36,6 +36,7 @@ def main():
     best_model_name = ""
     best_num_layers = 0
     best_loss = 1000000000
+    best_train_loss = []
 
     for lt, hls in itertools.product(layer_types, hidden_layer_sizes):
         # Define model
@@ -50,7 +51,7 @@ def main():
 
         print("layer type: " + lt)
         print("num hidden layers: " + str(hls))
-        model.train(optimizer, criterion, n_epochs, train_data)
+        train_loss = model.train(optimizer, criterion, n_epochs, train_data)
         # Validation data
         loss, accuracy, avg_loss = model.eval(optimizer, criterion, n_epochs, val_data)
 
@@ -59,16 +60,19 @@ def main():
             best_params = (model)
             best_model_name = lt
             best_num_layers = hls
+            best_train_loss = train_loss
 
         # Print stats
         print(str(lt) + " accuracy: " + str(accuracy * 100) + "%")
         print(str(lt) + " loss: " + str(loss))
 
         # plotting loss per epoch
-        plt.plot(avg_loss)
+        plt.plot(train_loss, label="train loss")
+        plt.plot(avg_loss, label="validation loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title("Per-Epoch Losses-" + str(lt))
+        plt.legend()
         plt.savefig("avg-loss-" + str(lt) +  "-" + str(hls) + ".png")
         plt.cla()
         plt.clf()
@@ -81,9 +85,11 @@ def main():
     print("test accuracy: " + str(accuracy * 100) + "%")
     print("test loss: " + str(loss))
     # plotting loss per epoch
-    plt.plot(avg_loss)
+    plt.plot(best_train_loss, label="train loss")
+    plt.plot(avg_loss, label="validation loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
+    plt.legend()
     plt.title("Per-Epoch Losses-" + str(best_model_name))
     plt.savefig("avg-loss-" + str(best_model_name) +  "-" + str(best_num_layers) + ".png")
     plt.cla()
