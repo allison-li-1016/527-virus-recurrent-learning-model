@@ -4,7 +4,6 @@ import torch.nn as nn
 import numpy as np
 
 
-# Seq to seq model
 class RNNModel(nn.Module):
     def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers):
         super(RNNModel, self).__init__()
@@ -36,22 +35,19 @@ class RNNModel(nn.Module):
         # Passing in the input and hidden state into the model and obtaining outputs
         out, hidden_n = self.rnn(x, hidden)
 
-        # Reshaping the outputs such that it can be fit into the fully connected layer
-        # -1 is n of original output tensor, second dimension is the same as the hidden layer
-
-        # Take the last output of the sequence
-        #out = out[:, -1, :]
-
         out = self.fc(out)
 
         # return output layer and hidden state (for training and RNN optimization)
         return out, hidden_n
 
-    def train(self, optimizer, criterion, epochs, train_loader):
+    def train(self, optimizer, criterion, epochs, train_loader, verbose=True):
         epoch_losses = []
+        epoch_resolution = max(1, epochs // 10)
+
         for epoch in range(1, epochs + 1):
             epoch_loss = 0
-            for x,y in train_loader:
+            num_batches = 0
+            for x, y in train_loader:
                 optimizer.zero_grad()  # Clears existing gradients from previous epoch
                 output, hidden = self(x)
                 loss = criterion(output, y)
@@ -61,34 +57,44 @@ class RNNModel(nn.Module):
 
                 # Calculate accuracy
                 predicted_labels = torch.argmax(output, dim=0)
-                correct_predictions = (predicted_labels == y).sum().item()
-                total_samples = np.prod(np.array(y.shape))  
+                correct_predictions = (
+                    (predicted_labels == y).sum().item()
+                )  # Add in check for codon = NNN
+                total_samples = np.prod(np.array(y.shape))
                 accuracy = correct_predictions / total_samples
-            epoch_losses.append(epoch_loss/len(train_loader))
-            if epoch % 10 == 0:
+                # Calculate num_batches
+                num_batches += 1
+            epoch_losses.append(epoch_loss / num_batches)
+
+            if not verbose:
+                return epoch_losses
+
+            if epoch % epoch_resolution == 0:
                 print("Epoch: {}/{}.............".format(epoch, epochs), end=" ")
-                print("Loss: {:.4f}, Accuracy: {:.2f}%".format(loss.item(), accuracy * 100))
+                print(
+                    "Loss: {:.4f}, Accuracy: {:.2f}%".format(
+                        loss.item(), accuracy * 100
+                    )
+                )
                 print("correct labels: " + str(correct_predictions))
                 print("total samples: " + str(total_samples))
 
         return epoch_losses
 
-    def eval(self, optimizer, criterion, epochs, data_loader):
-        # train and get per epoch losses
-        avg_loss = self.train(optimizer, criterion, epochs, data_loader)
+    def eval(self, optimizer, criterion, data_loader):
         # accuracy and loss on test set
         test_loss = 0.0
         correct = 0
         total = 0
         with torch.no_grad():
-            for x,y in data_loader:
-                outputs, hidden= self(x)
+            for x, y in data_loader:
+                outputs, hidden = self(x)
                 loss = criterion(outputs, y)
                 test_loss += loss.item()
                 predicted = torch.argmax(outputs, dim=0)
-                total += np.prod(np.array(y.shape))  
+                total += np.prod(np.array(y.shape))
                 correct += (predicted == y).sum().item()
                 test_loss /= len(x)
                 test_accuracy = correct / total
 
-        return test_loss, test_accuracy, avg_loss
+        return test_loss, test_accuracy

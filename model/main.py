@@ -8,113 +8,99 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 
+EPOCHS = 100
+VERBOSE = True
+
 
 def main():
     # load codon data for model
     path = "../data/resulting-codons.txt"
-    codon_loader = CodonLoader(path, num_samples=5, test_split=0.2)
-    # creating offset between x and y sequences
-    # so that each token is predicting the next token
-    train_data = parse_data(codon_loader.get_train_data())
-    val_data = parse_data(codon_loader.get_val_data())
-    test_data = parse_data(codon_loader.get_test_data())
-
-    # Load data from pkl file
-    # codon_loader.save_encoded_data()
-
+    codon_loader = CodonLoader(
+        path, num_samples=256, batch_size=32, num_epochs=EPOCHS, test_split=0.2
+    )
+    train_loader, val_loader, test_loader = codon_loader.data_loader()
 
     # Define hyperparameters
-    n_epochs = 100
     lr = 0.01
 
     # Grid search
-    layer_types = ["RNN", "LSTM", "GRU"]
-    hidden_layer_sizes = [128, 256, 512]
-    #layer_types = ["RNN"]
-    #hidden_layer_sizes = [64]
+    layer_types = ["RNN"]
+    hidden_layer_sizes = [32]
+
     best_params = []
     best_model_name = ""
     best_num_layers = 0
-    best_loss = 1000000000
+    best_loss = np.inf
     best_train_loss = []
 
     for lt, hls in itertools.product(layer_types, hidden_layer_sizes):
         # Define model
 
         # not sure how not to hard code number of features values here
-        model = RNNModel(lt, 64, 64, hls, 1)
+        model = RNNModel(
+            layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
+        )
 
         # Define Loss, Optimizer
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        # Train model
 
+        # Train model
         print("layer type: " + lt)
         print("num hidden layers: " + str(hls))
-        train_loss = model.train(optimizer, criterion, n_epochs, train_data)
-        # Validation data
-        loss, accuracy, avg_loss = model.eval(optimizer, criterion, n_epochs, val_data)
 
-        if loss < best_loss:
-            best_loss = loss
-            best_params = (model)
+        train_loss = model.train(
+            optimizer, criterion, EPOCHS, train_loader, verbose=VERBOSE
+        )
+        # Validation data
+        val_loss, accuracy = model.eval(optimizer, criterion, val_loader)
+
+        if val_loss < best_loss:
+            best_loss = val_loss
+            best_params = model
             best_model_name = lt
             best_num_layers = hls
             best_train_loss = train_loss
 
-        # Print stats
-        print(str(lt) + " accuracy: " + str(accuracy * 100) + "%")
-        print(str(lt) + " loss: " + str(loss))
+        print(
+            f"train loss: {train_loss[-1]:.4f} | val loss: {val_loss:.4f} | val acc: {accuracy:.4f}"
+        )
 
         # plotting loss per epoch
         plt.plot(train_loss, label="train loss")
-        plt.plot(avg_loss, label="validation loss")
+        plt.plot(val_loss, label="validation loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
         plt.title("Per-Epoch Losses-" + str(lt))
         plt.legend()
-        plt.savefig("avg-loss-" + str(lt) +  "-" + str(hls) + ".png")
+        plt.savefig("avg-loss-" + str(lt) + "-" + str(hls) + ".png")
         plt.cla()
         plt.clf()
-    
+
     model = best_params
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    loss, accuracy, avg_loss = model.eval(optimizer, criterion, n_epochs, test_data)
-    print("Best model is : " + str(best_model_name) + " with hidden layer size " + str(best_num_layers))
+    test_loss, accuracy = model.eval(optimizer, criterion, test_loader)
+    print(
+        "Best model is : "
+        + str(best_model_name)
+        + " with hidden layer size "
+        + str(best_num_layers)
+    )
     print("test accuracy: " + str(accuracy * 100) + "%")
-    print("test loss: " + str(loss))
+    print("test loss: " + str(test_loss))
     # plotting loss per epoch
     plt.plot(best_train_loss, label="train loss")
-    plt.plot(avg_loss, label="validation loss")
+    plt.plot(test_loss, label="validation loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
     plt.title("Per-Epoch Losses-" + str(best_model_name))
-    plt.savefig("avg-loss-" + str(best_model_name) +  "-" + str(best_num_layers) + ".png")
+    plt.savefig(
+        "avg-loss-" + str(best_model_name) + "-" + str(best_num_layers) + ".png"
+    )
     plt.cla()
     plt.clf()
-
-
-def parse_data(data):
-    # Creating lists that will hold our input and target sequences
-    x = []
-    y = []
-
-    for i in range(len(data)):
-        # Remove last character for input sequence
-        x.append(data[i][:-1])
-
-        # Remove first character for target sequence
-        y.append(data[i][1:])
-    
-    # change lists to tensors
-    x = np.array(x)
-    y = np.array(y)
-    x = torch.FloatTensor(x)
-    y = torch.FloatTensor(y)
-
-    return DataLoader(TensorDataset(x,y), 32, shuffle=True)
 
 
 if __name__ == "__main__":
