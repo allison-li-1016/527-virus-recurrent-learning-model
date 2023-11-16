@@ -16,7 +16,7 @@ def main():
     # load codon data for model
     path = "../data/resulting-codons.txt"
     codon_loader = CodonLoader(
-        path, num_samples=256, batch_size=32, num_epochs=EPOCHS, test_split=0.2
+        path, num_samples=5, batch_size=32, num_epochs=EPOCHS, test_split=0.2
     )
     train_loader, val_loader, test_loader = codon_loader.data_loader()
 
@@ -80,7 +80,7 @@ def main():
     model = best_params
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    test_loss, accuracy = model.eval(optimizer, criterion, test_loader)
+    test_loss, accuracy = model.eval(optimizer, criterion, test_loader, predict=True)
     print(
         "Best model is : "
         + str(best_model_name)

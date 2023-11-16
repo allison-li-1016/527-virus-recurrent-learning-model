@@ -6,7 +6,6 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
-
 class CodonDataset(Dataset):
     def __init__(self, file_path, num_samples=None, random_state=42):
         self.file_path = file_path
@@ -63,6 +62,22 @@ class CodonDataset(Dataset):
 
         return codon_data_offset, y_offset
 
+    def decode(encoded_sequences):
+        # Reverse the one-hot encoding and convert the data back to its original form
+        nucleotides = ["A", "C", "G", "T"]
+        possible_codons = ["".join(x) for x in list(itertools.product(nucleotides, repeat=3))]
+        codon_dict = {}
+        for i, codon in enumerate(possible_codons):
+            encoded_codon = np.zeros(len(possible_codons))
+            encoded_codon[i] = 1
+            codon_dict[tuple(encoded_codon)] = codon
+
+        #for codon in encoded_sequences[1]:
+        encoded_tuple = tuple(tuple(inner_list) for inner_list in encoded_sequences)
+        decoded_codons = codon_dict.get(encoded_tuple, "NNN")
+    
+        return decoded_codons
+
 
 class CodonLoader:
     def __init__(
@@ -106,3 +121,4 @@ class CodonLoader:
         )
 
         return train_loader, val_loader, test_loader
+

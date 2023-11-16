@@ -3,6 +3,8 @@ import torch.nn as nn
 
 import numpy as np
 
+from loader import CodonDataset
+
 
 class RNNModel(nn.Module):
     def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers):
@@ -81,11 +83,12 @@ class RNNModel(nn.Module):
 
         return epoch_losses
 
-    def eval(self, optimizer, criterion, data_loader):
+    def eval(self, optimizer, criterion, data_loader, predict=False):
         # accuracy and loss on test set
         test_loss = 0.0
         correct = 0
         total = 0
+        test_accuracy = 0
         with torch.no_grad():
             for x, y in data_loader:
                 outputs, hidden = self(x)
@@ -96,5 +99,11 @@ class RNNModel(nn.Module):
                 correct += (predicted == y).sum().item()
                 test_loss /= len(x)
                 test_accuracy = correct / total
+        
+                # predicting output
+                if predict:
+                    print("predicted sequence: ")
+                    print(*CodonDataset.decode(predicted.numpy().transpose()), sep = ", ") 
 
         return test_loss, test_accuracy
+    
