@@ -7,11 +7,13 @@ from loader import CodonDataset
 
 
 class RNNModel(nn.Module):
-    def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers):
+    def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers, mask_prob=0.15):
         super(RNNModel, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
         self.layer_type = layer_type
+        self.mask_prob = mask_prob
+
         # defining layers
         if layer_type == "GRU":
             self.rnn = nn.GRU(input_size, hidden_dim, n_layers, batch_first=True)
@@ -29,13 +31,19 @@ class RNNModel(nn.Module):
         # Initializing hidden state for first input
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
 
+        # Mask tokens with probability mask_prob
+        mask = torch.rand(x.size()) < self.mask_prob
+        
+        # Double check if '0' is an appropriate value to mask with
+        masked_inputs = x.masked_fill(mask, 0)
+
         # Special case for LSTM
         if self.layer_type == "LSTM":
             c0 = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
             hidden = (hidden, c0)
 
         # Passing in the input and hidden state into the model and obtaining outputs
-        out, hidden_n = self.rnn(x, hidden)
+        out, hidden_n = self.rnn(masked_inputs, hidden)
 
         out = self.fc(out)
 
@@ -83,7 +91,7 @@ class RNNModel(nn.Module):
 
         return epoch_losses
 
-    def eval(self, optimizer, criterion, data_loader, predict=False):
+    def eval(self, criterion, data_loader, predict=False):
         # accuracy and loss on test set
         test_loss = 0.0
         correct = 0
