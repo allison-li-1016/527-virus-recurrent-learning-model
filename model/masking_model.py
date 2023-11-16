@@ -6,12 +6,14 @@ import numpy as np
 from loader import CodonDataset
 
 
-class AutoregressiveRNNModel(nn.Module):
-    def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers):
-        super(AutoregressiveRNNModel, self).__init__()
+class MaskedRNNModel(nn.Module):
+    def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers, mask_prob=0.15):
+        super(MaskedRNNModel, self).__init__()
+
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
         self.layer_type = layer_type
+        self.mask_prob = mask_prob
 
         # defining layers
         if layer_type == "GRU":
@@ -30,13 +32,19 @@ class AutoregressiveRNNModel(nn.Module):
         # Initializing hidden state for first input
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
 
+        # Mask tokens with probability mask_prob
+        mask = torch.rand(x.size()) < self.mask_prob
+        
+        # Double check if '0' is an appropriate value to mask with
+        masked_inputs = x.masked_fill(mask, 0)
+
         # Special case for LSTM
         if self.layer_type == "LSTM":
             c0 = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
             hidden = (hidden, c0)
 
         # Passing in the input and hidden state into the model and obtaining outputs
-        out, hidden_n = self.rnn(x, hidden)
+        out, hidden_n = self.rnn(masked_inputs, hidden)
 
         out = self.fc(out)
 

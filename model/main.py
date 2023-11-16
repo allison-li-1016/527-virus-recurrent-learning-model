@@ -1,7 +1,8 @@
 import itertools
 
 from loader import CodonLoader
-from model import RNNModel
+from model import AutoregressiveRNNModel
+from masking_model import MaskedRNNModel
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -13,13 +14,26 @@ VERBOSE = True
 
 
 def main():
-    # load codon data for model
+    # load codon data for autoregressive model
     path = "../data/resulting-codons.txt"
     codon_loader = CodonLoader(
         path, num_samples=10, batch_size=32, num_epochs=EPOCHS, test_split=0.2
     )
-    train_loader, val_loader, test_loader = codon_loader.data_loader()
 
+    # load codon data for masked model
+    # only difference is that there is no offset
+    masked_codon_loader = MaskedCodonLoader(
+        path, num_samples=10, batch_size=32, num_epochs=EPOCHS, test_split=0.2
+    )
+
+    model_types = [("MASKED", masked_codon_loader), ("AUTOREGRESSIVE", codon_loader)]
+
+    for m in model_types:
+         loader = m[1]
+         train_loader, val_loader, test_loader = loader.data_loader()
+         run_stats(m[0], train_loader, val_loader, test_loader)
+         
+def run_stats(model_type, train_loader, val_loader, test_loader):
     # Define hyperparameters
     lr = 0.01
 
@@ -37,9 +51,14 @@ def main():
         # Define model
 
         # not sure how not to hard code number of features values here
-        model = RNNModel(
-            layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
-        )
+        if model == "MASKED":
+                model = MaskedRNNModel(
+                layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
+            )
+        else:
+            model = AutoregressiveRNNModel(
+                layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
+            )
 
         # Define Loss, Optimizer
         criterion = nn.CrossEntropyLoss()
@@ -101,7 +120,6 @@ def main():
     )
     plt.cla()
     plt.clf()
-
 
 if __name__ == "__main__":
     main()
