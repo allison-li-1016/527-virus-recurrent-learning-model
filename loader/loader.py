@@ -6,11 +6,13 @@ from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder
 
+
 class CodonDataset(Dataset):
-    def __init__(self, file_path, num_samples=None, random_state=42):
+    def __init__(self, file_path, num_samples=None, offset=True, random_state=42):
         self.file_path = file_path
         self.random_state = random_state
         self.num_samples = num_samples
+        self.offset = offset
         self.codon_data, self.y = self._load_data()
 
     def __len__(self):
@@ -57,25 +59,29 @@ class CodonDataset(Dataset):
             ]
 
             # Get offset data
-            codon_data_offset = [sequence[:-1] for sequence in encoded_codons]
-            y_offset = [sequence[1:] for sequence in encoded_codons]
+            if self.offset:
+                codon_data_offset = [sequence[:-1] for sequence in encoded_codons]
+                y_offset = [sequence[1:] for sequence in encoded_codons]
+                return codon_data_offset, y_offset
 
-        return codon_data_offset, y_offset
+            return encoded_codons, encoded_codons
 
     def decode(encoded_sequences):
         # Reverse the one-hot encoding and convert the data back to its original form
         nucleotides = ["A", "C", "G", "T"]
-        possible_codons = ["".join(x) for x in list(itertools.product(nucleotides, repeat=3))]
+        possible_codons = [
+            "".join(x) for x in list(itertools.product(nucleotides, repeat=3))
+        ]
         codon_dict = {}
         for i, codon in enumerate(possible_codons):
             encoded_codon = np.zeros(len(possible_codons))
             encoded_codon[i] = 1
             codon_dict[tuple(encoded_codon)] = codon
 
-        #for codon in encoded_sequences[1]:
+        # for codon in encoded_sequences[1]:
         encoded_tuple = tuple(tuple(inner_list) for inner_list in encoded_sequences)
         decoded_codons = codon_dict.get(encoded_tuple, "NNN")
-    
+
         return decoded_codons
 
 
@@ -86,6 +92,7 @@ class CodonLoader:
         num_samples=None,
         batch_size=32,
         num_epochs=10,
+        offset=True,
         test_split=0.2,
         random_state=42,
     ):
@@ -95,11 +102,15 @@ class CodonLoader:
         self.num_samples = num_samples
         self.batch_size = batch_size
         self.num_epochs = num_epochs
+        self.offset = offset
         self.save_path = file_path.replace(".txt", ".pkl")
 
     def data_loader(self):
         dataset = CodonDataset(
-            self.file_path, num_samples=self.num_samples, random_state=self.random_state
+            self.file_path,
+            num_samples=self.num_samples,
+            offset=self.offset,
+            random_state=self.random_state,
         )
         train_size = int((1 - self.test_split) * len(dataset))
         val_size = int(
@@ -121,4 +132,3 @@ class CodonLoader:
         )
 
         return train_loader, val_loader, test_loader
-

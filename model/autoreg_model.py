@@ -3,7 +3,7 @@ import torch.nn as nn
 
 import numpy as np
 
-from loader import CodonDataset
+from loader.loader import CodonDataset
 
 
 class AutoregressiveRNNModel(nn.Module):
@@ -100,11 +100,10 @@ class AutoregressiveRNNModel(nn.Module):
                 correct += (predicted == y).sum().item()
                 test_loss /= len(x)
                 test_accuracy = correct / total
-        
+
                 # predicting output
                 if predict:
                     print("predicted sequence: ")
-                    print(*CodonDataset.decode(predicted.numpy().transpose()), sep = ", ") 
+                    print(*CodonDataset.decode(predicted.numpy().transpose()), sep=", ")
 
         return test_loss, test_accuracy
-    

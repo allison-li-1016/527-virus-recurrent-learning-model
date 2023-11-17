@@ -1,39 +1,47 @@
 import itertools
+import numpy as np
+import matplotlib.pyplot as plt
 
-from loader import CodonLoader
-from model import AutoregressiveRNNModel
-from masking_model import MaskedRNNModel
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
-from torch.utils.data import DataLoader, TensorDataset
-import numpy as np
+
+from loader.loader import CodonLoader
+from model.autoreg_model import AutoregressiveRNNModel
+from model.masking_model import MaskedRNNModel
 
 EPOCHS = 100
 VERBOSE = True
 
 
 def main():
-    # load codon data for autoregressive model
-    path = "../data/resulting-codons.txt"
+    path = "data/resulting-codons.txt"
     codon_loader = CodonLoader(
-        path, num_samples=10, batch_size=32, num_epochs=EPOCHS, test_split=0.2
+        path,
+        num_samples=10,
+        batch_size=32,
+        num_epochs=EPOCHS,
+        offset=True,
+        test_split=0.2,
     )
 
-    # load codon data for masked model
-    # only difference is that there is no offset
-    masked_codon_loader = MaskedCodonLoader(
-        path, num_samples=10, batch_size=32, num_epochs=EPOCHS, test_split=0.2
+    masked_codon_loader = CodonLoader(
+        path,
+        num_samples=10,
+        batch_size=32,
+        num_epochs=EPOCHS,
+        offset=False,
+        test_split=0.2,
     )
 
     model_types = [("MASKED", masked_codon_loader), ("AUTOREGRESSIVE", codon_loader)]
 
     for m in model_types:
-         loader = m[1]
-         train_loader, val_loader, test_loader = loader.data_loader()
-         run_stats(m[0], train_loader, val_loader, test_loader)
-         
-def run_stats(model_type, train_loader, val_loader, test_loader):
+        loader = m[1]
+        train_loader, val_loader, test_loader = loader.data_loader()
+        evaluate(m[0], train_loader, val_loader, test_loader)
+
+
+def evaluate(model_type, train_loader, val_loader, test_loader):
     # Define hyperparameters
     lr = 0.01
 
@@ -48,11 +56,9 @@ def run_stats(model_type, train_loader, val_loader, test_loader):
     best_train_loss = []
 
     for lt, hls in itertools.product(layer_types, hidden_layer_sizes):
-        # Define model
-
-        # not sure how not to hard code number of features values here
-        if model == "MASKED":
-                model = MaskedRNNModel(
+        # TODO: not sure how not to hard code number of features values here
+        if model_type == "MASKED":
+            model = MaskedRNNModel(
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
             )
         else:
@@ -60,18 +66,15 @@ def run_stats(model_type, train_loader, val_loader, test_loader):
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
             )
 
-        # Define Loss, Optimizer
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-        # Train model
         print("layer type: " + lt)
         print("num hidden layers: " + str(hls))
 
         train_loss = model.train(
             optimizer, criterion, EPOCHS, train_loader, verbose=VERBOSE
         )
-        # Validation data
         val_loss, accuracy = model.eval(criterion, val_loader)
 
         if val_loss < best_loss:
@@ -85,16 +88,7 @@ def run_stats(model_type, train_loader, val_loader, test_loader):
             f"train loss: {train_loss[-1]:.4f} | val loss: {val_loss:.4f} | val acc: {accuracy:.4f}"
         )
 
-        # plotting loss per epoch
-        plt.plot(train_loss, label="train loss")
-        plt.plot(val_loss, label="validation loss")
-        plt.xlabel("Epoch")
-        plt.ylabel("Loss")
-        plt.title("Per-Epoch Losses-" + str(lt))
-        plt.legend()
-        plt.savefig("avg-loss-" + str(lt) + "-" + str(hls) + ".png")
-        plt.cla()
-        plt.clf()
+        plot_loss(train_loss, val_loss, lt, hls, model_type)
 
     model = best_params
     criterion = nn.CrossEntropyLoss()
@@ -108,18 +102,27 @@ def run_stats(model_type, train_loader, val_loader, test_loader):
     )
     print("test accuracy: " + str(accuracy * 100) + "%")
     print("test loss: " + str(test_loss))
-    # plotting loss per epoch
-    plt.plot(best_train_loss, label="train loss")
-    plt.plot(test_loss, label="validation loss")
+
+    plot_loss(best_train_loss, test_loss, best_model_name, best_num_layers, model_type)
+
+
+def plot_loss(train_loss, val_loss, model_name, num_layers, model_type):
+    plt.plot(train_loss, label="train loss")
+    plt.plot(val_loss, label="validation loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
+    plt.title("Per-Epoch Losses-" + str(model_name))
     plt.legend()
-    plt.title("Per-Epoch Losses-" + str(best_model_name))
     plt.savefig(
-        "avg-loss-" + str(best_model_name) + "-" + str(best_num_layers) + ".png"
+        f"images/{model_type.lower()}/avg-loss-"
+        + str(model_name)
+        + "-"
+        + str(num_layers)
+        + ".png"
     )
     plt.cla()
     plt.clf()
+
 
 if __name__ == "__main__":
     main()

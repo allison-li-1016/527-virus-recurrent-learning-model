@@ -3,11 +3,13 @@ import torch.nn as nn
 
 import numpy as np
 
-from loader import CodonDataset
+from loader.loader import CodonDataset
 
 
 class MaskedRNNModel(nn.Module):
-    def __init__(self, layer_type, input_size, output_size, hidden_dim, n_layers, mask_prob=0.15):
+    def __init__(
+        self, layer_type, input_size, output_size, hidden_dim, n_layers, mask_prob=0.15
+    ):
         super(MaskedRNNModel, self).__init__()
 
         self.hidden_dim = hidden_dim
@@ -34,7 +36,7 @@ class MaskedRNNModel(nn.Module):
 
         # Mask tokens with probability mask_prob
         mask = torch.rand(x.size()) < self.mask_prob
-        
+
         # Double check if '0' is an appropriate value to mask with
         masked_inputs = x.masked_fill(mask, 0)
 
@@ -108,11 +110,10 @@ class MaskedRNNModel(nn.Module):
                 correct += (predicted == y).sum().item()
                 test_loss /= len(x)
                 test_accuracy = correct / total
-        
+
                 # predicting output
                 if predict:
                     print("predicted sequence: ")
-                    print(*CodonDataset.decode(predicted.numpy().transpose()), sep = ", ") 
+                    print(*CodonDataset.decode(predicted.numpy().transpose()), sep=", ")
 
         return test_loss, test_accuracy
-    
