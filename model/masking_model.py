@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 import numpy as np
-
+import math
 from loader.loader import CodonDataset
 
 
@@ -34,11 +34,8 @@ class MaskedRNNModel(nn.Module):
         # Initializing hidden state for first input
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
 
-        # Mask tokens with probability mask_prob
-        mask = torch.rand(x.size()) < self.mask_prob
-
-        # Double check if '0' is an appropriate value to mask with
-        masked_inputs = x.masked_fill(mask, 0)
+        #TODO: Double check if '0' is an appropriate value to mask with
+        masked_inputs = self.mask_tensor(x)
 
         # Special case for LSTM
         if self.layer_type == "LSTM":
@@ -117,3 +114,29 @@ class MaskedRNNModel(nn.Module):
                     print(*CodonDataset.decode(predicted.numpy().transpose()), sep=", ")
 
         return test_loss, test_accuracy
+
+    def mask_tensor(self, matrix):
+        # Ensure mask_percentage is a valid percentage value
+        if self.mask_prob < 0 or self.mask_prob  > 1:
+            raise ValueError("Mask percentage should be between 0 and 1.")
+    
+        # Calculate the number of elements to be masked
+        total_elements = np.prod(list(matrix.shape))
+        num_elements_to_mask = math.ceil(self.mask_prob * total_elements)
+
+        # Create a mask with zeros (masked) and ones (not masked)
+        mask = np.zeros_like(matrix)
+        
+        # Randomly choose elements to be masked
+        mask_indices = np.random.choice(total_elements, num_elements_to_mask, replace=False)
+
+        # Convert flat indices to indices in the original matrix
+        indices = np.unravel_index(mask_indices, matrix.shape)
+        
+        # Apply the mask to the matrix
+        mask[indices] = 1
+
+        # Apply the mask to the original matrix
+        masked_matrix = np.multiply(matrix, 1 - mask)
+
+        return masked_matrix

@@ -8,6 +8,7 @@ import torch.nn as nn
 from loader.loader import CodonLoader
 from model.autoreg_model import AutoregressiveRNNModel
 from model.masking_model import MaskedRNNModel
+import os
 
 EPOCHS = 100
 VERBOSE = True
@@ -17,7 +18,7 @@ def main():
     path = "data/resulting-codons.txt"
     codon_loader = CodonLoader(
         path,
-        num_samples=10,
+        num_samples=20,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=True,
@@ -26,7 +27,7 @@ def main():
 
     masked_codon_loader = CodonLoader(
         path,
-        num_samples=10,
+        num_samples=20,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=False,
@@ -69,6 +70,7 @@ def evaluate(model_type, train_loader, val_loader, test_loader):
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
+        print("model type: " + model_type)
         print("layer type: " + lt)
         print("num hidden layers: " + str(hls))
 
@@ -88,6 +90,7 @@ def evaluate(model_type, train_loader, val_loader, test_loader):
             f"train loss: {train_loss[-1]:.4f} | val loss: {val_loss:.4f} | val acc: {accuracy:.4f}"
         )
 
+        #TODO: val loss is now a single value and not a list since there is no training, can't rly plot it against training loss
         plot_loss(train_loss, val_loss, lt, hls, model_type)
 
     model = best_params
@@ -103,23 +106,27 @@ def evaluate(model_type, train_loader, val_loader, test_loader):
     print("test accuracy: " + str(accuracy * 100) + "%")
     print("test loss: " + str(test_loss))
 
-    plot_loss(best_train_loss, test_loss, best_model_name, best_num_layers, model_type)
+    plot_loss(best_train_loss, test_loss, best_model_name, best_num_layers, model_type, best=True)
 
 
-def plot_loss(train_loss, val_loss, model_name, num_layers, model_type):
+def plot_loss(train_loss, val_loss, model_name, num_layers, model_type, best=False):
     plt.plot(train_loss, label="train loss")
     plt.plot(val_loss, label="validation loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("Per-Epoch Losses-" + str(model_name))
+    plt.title("Per-Epoch Losses-" + str(model_name) + "-" + model_type)
     plt.legend()
-    plt.savefig(
-        f"images/{model_type.lower()}/avg-loss-"
-        + str(model_name)
-        + "-"
-        + str(num_layers)
-        + ".png"
-    )
+    # Creating file path
+    if best:
+        filename = f"images/{model_type.lower()}/avg-loss-" + str(model_name)+ "-"+ str(num_layers)+ "-best-" + ".png"
+    else:
+        filename = f"images/{model_type.lower()}/avg-loss-" + str(model_name)+ "-"+ str(num_layers)+ "-" + model_type + ".png"
+    # Extract the directory path from the filename
+    directory = os.path.dirname(filename)
+    # Create the directory if it doesn't exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    plt.savefig(filename)
     plt.cla()
     plt.clf()
 
