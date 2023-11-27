@@ -67,6 +67,7 @@ class CodonDataset(Dataset):
             return encoded_codons, encoded_codons
 
     def decode(encoded_sequences):
+        batchsize, seq_length, _ = encoded_sequences.shape
         # Reverse the one-hot encoding and convert the data back to its original form
         nucleotides = ["A", "C", "G", "T"]
         possible_codons = [
@@ -77,12 +78,23 @@ class CodonDataset(Dataset):
             encoded_codon = np.zeros(len(possible_codons))
             encoded_codon[i] = 1
             codon_dict[tuple(encoded_codon)] = codon
-
-        # for codon in encoded_sequences[1]:
-        encoded_tuple = tuple(tuple(inner_list) for inner_list in encoded_sequences)
-        decoded_codons = codon_dict.get(encoded_tuple, "NNN")
-
-        return decoded_codons
+        
+        decoded_codon_seq = []
+        # iterating through batches
+        for sequences in range(batchsize):
+            decoded_codons = []
+            #iterating through protein length
+            for codons in range(seq_length):
+                vector = encoded_sequences[sequences][codons]
+                if (all(v == 0 for v in vector)):
+                    decoded_codons.append("MASKED")
+                else:
+                    encoded_tuple = tuple(vector)
+                    decoded_codons.append(codon_dict.get(encoded_tuple, "NNN"))
+            decoded_codon_seq.append(decoded_codons)
+        # turn list of lists to np array
+        decoded_codon_seq = np.array(decoded_codon_seq)
+        return decoded_codon_seq 
 
 
 class CodonLoader:

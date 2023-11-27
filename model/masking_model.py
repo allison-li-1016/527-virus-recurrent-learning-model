@@ -110,6 +110,8 @@ class MaskedRNNModel(nn.Module):
 
                 # predicting output
                 if predict:
+                    #TODO: the dimensions of this might be incorrect. Check if predicted needs to be transposed or not
+                    #TODO: expected dimension of decode is (batch size, seq length, codon dict length)
                     print("predicted sequence: ")
                     print(*CodonDataset.decode(predicted.numpy().transpose()), sep=", ")
 
@@ -117,26 +119,40 @@ class MaskedRNNModel(nn.Module):
 
     def mask_tensor(self, matrix):
         # Ensure mask_percentage is a valid percentage value
-        if self.mask_prob < 0 or self.mask_prob  > 1:
+        if self.mask_prob < 0 or self.mask_prob > 1:
             raise ValueError("Mask percentage should be between 0 and 1.")
-    
-        # Calculate the number of elements to be masked
-        total_elements = np.prod(list(matrix.shape))
-        num_elements_to_mask = math.ceil(self.mask_prob * total_elements)
 
-        # Create a mask with zeros (masked) and ones (not masked)
-        mask = np.zeros_like(matrix)
+        # Calculate the number of codons to be masked per batch
+        batch_size, sequence_length, codon_length = matrix.shape
+        num_codons_to_mask = math.ceil(self.mask_prob * (sequence_length))
+
+        print(num_codons_to_mask)
+
+        # Create a flat mask with zeros (masked) and ones (not masked)
+        matrices = []
+
+         # Randomly choose codons to be masked for each batch
+        for batch in range(batch_size):
+            m = np.zeros((sequence_length, codon_length))
+            masked_codon_indices = np.random.choice(sequence_length, num_codons_to_mask)
+            m[masked_codon_indices, :] = 1
+            matrices.append(m)
+
+        # stack matrices for each batch into 1 matrix
+        mask = np.stack(matrices)
         
-        # Randomly choose elements to be masked
-        mask_indices = np.random.choice(total_elements, num_elements_to_mask, replace=False)
-
-        # Convert flat indices to indices in the original matrix
-        indices = np.unravel_index(mask_indices, matrix.shape)
-        
-        # Apply the mask to the matrix
-        mask[indices] = 1
-
         # Apply the mask to the original matrix
         masked_matrix = np.multiply(matrix, 1 - mask)
+
+        # Convert matrix back to tensor of floats
+        masked_matrix = masked_matrix.float()
+
+
+        #TODO: masking around ~1000 codons whereas only supposed to mask 191 * 4. could be do to unsequenced codons.  
+
+        #masked_decode = CodonDataset.decode(masked_matrix.numpy())
+        #print("masked sequence: ")
+        #print(*CodonDataset.decode(masked_matrix.numpy()), sep=", ")
+        #print(np.column_stack(np.where(masked_decode == 'MASKED')).shape)
 
         return masked_matrix
