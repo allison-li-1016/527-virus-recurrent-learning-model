@@ -24,6 +24,12 @@ def main():
         test_split=0.2,
     )
 
+    (
+        autoreg_train_loader,
+        autoreg_val_loader,
+        autoreg_test_loader,
+    ) = codon_loader.data_loader()
+
     masked_codon_loader = CodonLoader(
         path,
         num_samples=10,
@@ -32,6 +38,21 @@ def main():
         offset=False,
         test_split=0.2,
     )
+
+    (
+        masked_train_loader,
+        masked_val_loader,
+        masked_test_loader,
+    ) = masked_codon_loader.data_loader()
+
+    for data in next(iter(masked_train_loader)):
+        x = data[0]
+        y = data[1]
+        for i in range(10):
+            print(masked_codon_loader.decode_codons([x[i]]))
+            print(masked_codon_loader.decode_codons([y[i]]))
+            print("-----")
+    return
 
     model_types = [("MASKED", masked_codon_loader), ("AUTOREGRESSIVE", codon_loader)]
 

@@ -8,11 +8,19 @@ from sklearn.preprocessing import OneHotEncoder
 
 
 class CodonDataset(Dataset):
-    def __init__(self, file_path, num_samples=None, offset=True, random_state=42):
+    def __init__(
+        self,
+        file_path,
+        num_samples=None,
+        offset=True,
+        encoder=OneHotEncoder(),
+        random_state=42,
+    ):
         self.file_path = file_path
         self.random_state = random_state
         self.num_samples = num_samples
         self.offset = offset
+        self.encoder = encoder
         self.codon_data, self.y = self._load_data()
 
     def __len__(self):
@@ -36,25 +44,26 @@ class CodonDataset(Dataset):
                 for codon_sequence in codon_data
             ]
 
+            codon_data = [
+                codon_sequence
+                for codon_sequence in codon_data
+                if "NNN" not in codon_sequence
+            ]
+
             random.shuffle(codon_data)
             if self.num_samples is not None:
                 codon_data = codon_data[: self.num_samples]
 
-            nucleotides = ["A", "C", "G", "T"]
-            possible_codons = [
-                "".join(x) for x in list(itertools.product(nucleotides, repeat=3))
-            ]
-            encoder = OneHotEncoder(
-                categories=[possible_codons], handle_unknown="ignore"
-            )
-
             flat_codon_list = [
                 codon for codon_sequence in codon_data for codon in codon_sequence
             ]
-            encoder.fit([[codon] for codon in flat_codon_list])
+            self.encoder.fit([[codon] for codon in flat_codon_list])
 
             encoded_codons = [
-                [encoder.transform([[codon]]).toarray()[0] for codon in codon_sequence]
+                [
+                    self.encoder.transform([[codon]]).toarray()[0]
+                    for codon in codon_sequence
+                ]
                 for codon_sequence in codon_data
             ]
 
@@ -63,26 +72,16 @@ class CodonDataset(Dataset):
                 codon_data_offset = [sequence[:-1] for sequence in encoded_codons]
                 y_offset = [sequence[1:] for sequence in encoded_codons]
                 return codon_data_offset, y_offset
-
-            return encoded_codons, encoded_codons
-
-    def decode(encoded_sequences):
-        # Reverse the one-hot encoding and convert the data back to its original form
-        nucleotides = ["A", "C", "G", "T"]
-        possible_codons = [
-            "".join(x) for x in list(itertools.product(nucleotides, repeat=3))
-        ]
-        codon_dict = {}
-        for i, codon in enumerate(possible_codons):
-            encoded_codon = np.zeros(len(possible_codons))
-            encoded_codon[i] = 1
-            codon_dict[tuple(encoded_codon)] = codon
-
-        # for codon in encoded_sequences[1]:
-        encoded_tuple = tuple(tuple(inner_list) for inner_list in encoded_sequences)
-        decoded_codons = codon_dict.get(encoded_tuple, "NNN")
-
-        return decoded_codons
+            # Get non-offset data and mask some percent of the codons
+            else:
+                codon_data_masked = [
+                    [
+                        codon if random.random() > 0.15 else np.zeros(64)
+                        for codon in codon_sequence
+                    ]
+                    for codon_sequence in encoded_codons
+                ]
+                return codon_data_masked, encoded_codons
 
 
 class CodonLoader:
@@ -105,11 +104,21 @@ class CodonLoader:
         self.offset = offset
         self.save_path = file_path.replace(".txt", ".pkl")
 
+        self.nucleotides = ["A", "C", "G", "T"]
+        self.possible_codons = [
+            "".join(x) for x in list(itertools.product(self.nucleotides, repeat=3))
+        ]
+
+        self.encoder = OneHotEncoder(
+            categories=[self.possible_codons], handle_unknown="ignore"
+        )
+
     def data_loader(self):
         dataset = CodonDataset(
             self.file_path,
             num_samples=self.num_samples,
             offset=self.offset,
+            encoder=self.encoder,
             random_state=self.random_state,
         )
         train_size = int((1 - self.test_split) * len(dataset))
@@ -132,3 +141,11 @@ class CodonLoader:
         )
 
         return train_loader, val_loader, test_loader
+
+    def decode_codons(self, encoded_sequences):
+        decoded_codons = self.encoder.inverse_transform(encoded_sequences)
+        decoded_codons = [
+            ["MASK" if codon == None else codon for codon in sequence]
+            for sequence in decoded_codons
+        ]
+        return decoded_codons
