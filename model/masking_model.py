@@ -3,7 +3,7 @@ import torch.nn as nn
 
 import numpy as np
 import math
-from loader.loader import CodonDataset
+from loader.loader import CodonDataset, CodonLoader
 
 
 class MaskedRNNModel(nn.Module):
@@ -17,38 +17,32 @@ class MaskedRNNModel(nn.Module):
         self.layer_type = layer_type
         self.mask_prob = mask_prob
 
-        # defining layers
-        if layer_type == "GRU":
-            self.rnn = nn.GRU(input_size, hidden_dim, n_layers, batch_first=True)
-        if layer_type == "LSTM":
-            self.rnn = nn.LSTM(input_size, hidden_dim, n_layers, batch_first=True)
-        else:
-            # default vanilla rnn
-            self.rnn = nn.RNN(input_size, hidden_dim, n_layers, batch_first=True)
-        # fully connected layer -> connect network to output labels
+        self.rnn = nn.RNN(input_size, hidden_dim, n_layers, batch_first=True)
+        self.activation = nn.ReLU()
         self.fc = nn.Linear(hidden_dim, output_size)
 
     def forward(self, x):
         batch_size = x.size(0)
 
-        # Initializing hidden state for first input
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
 
-        #TODO: Double check if '0' is an appropriate value to mask with
-        masked_inputs = self.mask_tensor(x)
+        mask = torch.rand(x.size()) < self.mask_prob
 
-        # Special case for LSTM
-        if self.layer_type == "LSTM":
-            c0 = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
-            hidden = (hidden, c0)
+        masked_inputs = x.masked_fill(mask, -1)
 
-        # Passing in the input and hidden state into the model and obtaining outputs
         out, hidden_n = self.rnn(masked_inputs, hidden)
-
+        out = self.activation(out)
         out = self.fc(out)
 
-        # return output layer and hidden state (for training and RNN optimization)
-        return out, hidden_n
+        return out, hidden_n, mask
+
+    def predict(self, x):
+        with torch.no_grad():
+            raw_output, hidden, mask = self(x)
+            probabilities = torch.softmax(raw_output, dim=2)
+            _, predicted = torch.max(probabilities, dim=2)
+            predicted_one_hot = nn.functional.one_hot(predicted, num_classes=64)
+            return predicted_one_hot
 
     def train(self, optimizer, criterion, epochs, train_loader, verbose=True):
         epoch_losses = []
@@ -59,7 +53,7 @@ class MaskedRNNModel(nn.Module):
             num_batches = 0
             for x, y in train_loader:
                 optimizer.zero_grad()  # Clears existing gradients from previous epoch
-                output, hidden = self(x)
+                output, hidden, mask = self(x)
                 loss = criterion(output, y)
                 loss.backward()  # Does backpropagation and calculates gradients
                 epoch_loss += loss.item()
@@ -99,44 +93,13 @@ class MaskedRNNModel(nn.Module):
         test_accuracy = 0
         with torch.no_grad():
             for x, y in data_loader:
-                outputs, hidden = self(x)
+                outputs, hidden, mask = self(x)
                 loss = criterion(outputs, y)
                 test_loss += loss.item()
-                predicted = torch.argmax(outputs, dim=0)
+                predicted = self.predict(x)
                 total += np.prod(np.array(y.shape))
                 correct += (predicted == y).sum().item()
                 test_loss /= len(x)
                 test_accuracy = correct / total
 
-                # predicting output
-                if predict:
-                    print("predicted sequence: ")
-                    print(*CodonDataset.decode(predicted.numpy().transpose()), sep=", ")
-
         return test_loss, test_accuracy
-
-    def mask_tensor(self, matrix):
-        # Ensure mask_percentage is a valid percentage value
-        if self.mask_prob < 0 or self.mask_prob  > 1:
-            raise ValueError("Mask percentage should be between 0 and 1.")
-    
-        # Calculate the number of elements to be masked
-        total_elements = np.prod(list(matrix.shape))
-        num_elements_to_mask = math.ceil(self.mask_prob * total_elements)
-
-        # Create a mask with zeros (masked) and ones (not masked)
-        mask = np.zeros_like(matrix)
-        
-        # Randomly choose elements to be masked
-        mask_indices = np.random.choice(total_elements, num_elements_to_mask, replace=False)
-
-        # Convert flat indices to indices in the original matrix
-        indices = np.unravel_index(mask_indices, matrix.shape)
-        
-        # Apply the mask to the matrix
-        mask[indices] = 1
-
-        # Apply the mask to the original matrix
-        masked_matrix = np.multiply(matrix, 1 - mask)
-
-        return masked_matrix
