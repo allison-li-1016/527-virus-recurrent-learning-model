@@ -10,7 +10,7 @@ from model.autoreg_model import AutoregressiveRNNModel
 from model.masking_model import MaskedRNNModel
 import os
 
-EPOCHS = 100
+EPOCHS = 10
 VERBOSE = True
 
 
@@ -34,15 +34,16 @@ def main():
         test_split=0.2,
     )
 
-    model_types = [("MASKED", masked_codon_loader), ("AUTOREGRESSIVE", codon_loader)]
+    model_types = [("MASKED", masked_codon_loader)]
 
     for m in model_types:
+        model_type = m[0]
         loader = m[1]
-        train_loader, val_loader, test_loader = loader.data_loader()
-        evaluate(m[0], train_loader, val_loader, test_loader)
+        evaluate(model_type, loader)
 
 
-def evaluate(model_type, train_loader, val_loader, test_loader):
+def evaluate(model_type, loader):
+    train_loader, val_loader, test_loader = loader.data_loader()
     # Define hyperparameters
     lr = 0.01
 
@@ -62,12 +63,13 @@ def evaluate(model_type, train_loader, val_loader, test_loader):
             model = MaskedRNNModel(
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
             )
+            criterion = custom_masked_loss
         else:
             model = AutoregressiveRNNModel(
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
             )
+            criterion = nn.CrossEntropyLoss()
 
-        criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
         print("model type: " + model_type)
@@ -90,13 +92,21 @@ def evaluate(model_type, train_loader, val_loader, test_loader):
             f"train loss: {train_loss[-1]:.4f} | val loss: {val_loss:.4f} | val acc: {accuracy:.4f}"
         )
 
-        #TODO: val loss is now a single value and not a list since there is no training, can't rly plot it against training loss
+        # TODO: val loss is now a single value and not a list since there is no training, can't rly plot it against training loss
         plot_loss(train_loss, val_loss, lt, hls, model_type)
 
     model = best_params
-    criterion = nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
+    criterion = custom_masked_loss
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     test_loss, accuracy = model.eval(criterion, test_loader, predict=True)
+
+    for x, y in test_loader:
+        print("actual:")
+        print(loader.decode_codons(y[0]))
+        print("predicted:")
+        print(loader.decode_codons(model.predict(x)[0]))
+
     print(
         "Best model is : "
         + str(best_model_name)
@@ -106,7 +116,14 @@ def evaluate(model_type, train_loader, val_loader, test_loader):
     print("test accuracy: " + str(accuracy * 100) + "%")
     print("test loss: " + str(test_loss))
 
-    plot_loss(best_train_loss, test_loss, best_model_name, best_num_layers, model_type, best=True)
+    plot_loss(
+        best_train_loss,
+        test_loss,
+        best_model_name,
+        best_num_layers,
+        model_type,
+        best=True,
+    )
 
 
 def plot_loss(train_loss, val_loss, model_name, num_layers, model_type, best=False):
@@ -118,9 +135,24 @@ def plot_loss(train_loss, val_loss, model_name, num_layers, model_type, best=Fal
     plt.legend()
     # Creating file path
     if best:
-        filename = f"images/{model_type.lower()}/avg-loss-" + str(model_name)+ "-"+ str(num_layers)+ "-best-" + ".png"
+        filename = (
+            f"images/{model_type.lower()}/avg-loss-"
+            + str(model_name)
+            + "-"
+            + str(num_layers)
+            + "-best-"
+            + ".png"
+        )
     else:
-        filename = f"images/{model_type.lower()}/avg-loss-" + str(model_name)+ "-"+ str(num_layers)+ "-" + model_type + ".png"
+        filename = (
+            f"images/{model_type.lower()}/avg-loss-"
+            + str(model_name)
+            + "-"
+            + str(num_layers)
+            + "-"
+            + model_type
+            + ".png"
+        )
     # Extract the directory path from the filename
     directory = os.path.dirname(filename)
     # Create the directory if it doesn't exist
@@ -129,6 +161,14 @@ def plot_loss(train_loss, val_loss, model_name, num_layers, model_type, best=Fal
     plt.savefig(filename)
     plt.cla()
     plt.clf()
+
+
+def custom_masked_loss(outputs, targets, mask_value=-1):
+    # Mask out the loss for positions where the input was masked
+    mask = targets != mask_value
+    masked_outputs = outputs[mask]
+    masked_targets = targets[mask]
+    return nn.functional.cross_entropy(masked_outputs, masked_targets)
 
 
 if __name__ == "__main__":
