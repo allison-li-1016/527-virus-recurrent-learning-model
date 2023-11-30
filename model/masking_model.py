@@ -8,7 +8,7 @@ from loader.loader import CodonDataset, CodonLoader
 
 class MaskedRNNModel(nn.Module):
     def __init__(
-        self, layer_type, input_size, output_size, hidden_dim, n_layers, mask_prob=0.15
+        self, layer_type, input_size, output_size, hidden_dim, n_layers, mask_prob=0.0
     ):
         super(MaskedRNNModel, self).__init__()
 
@@ -25,6 +25,7 @@ class MaskedRNNModel(nn.Module):
         batch_size = x.size(0)
 
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
+
 
         mask = torch.rand(x.size()) < self.mask_prob
 
@@ -103,3 +104,65 @@ class MaskedRNNModel(nn.Module):
                 test_accuracy = correct / total
 
         return test_loss, test_accuracy
+    
+    def masked_entropy_loss(self,x, y, mask):
+        # Obtaining dimensions of input matrix
+        batch_size, _, codon_dict_length = x.shape
+
+        # Use negative log likelihood loss (cross-entropy) with reduction='none'
+        loss = nn.CrossEntropyLoss(x,y,reduction='none')
+
+        # Flatten along the second dimension
+        mask2d = mask.view(batch_size, -1, codon_dict_length)
+
+        # Apply the mask to ignore the loss for unmasked positions
+        masked_loss = loss * mask2d
+
+        # Calculate the mean loss only for masked positions
+        masked_positions = torch.sum(mask2d)
+        
+        if masked_positions == 0:
+            # Handle the case where there are no non-masked positions to avoid division by zero
+            return torch.tensor(0.0, requires_grad=True)
+        else:
+            return torch.sum(masked_loss) / masked_positions
+
+    def mask_tensor(self, matrix):
+        # Ensure mask_percentage is a valid percentage value
+        if self.mask_prob < 0 or self.mask_prob > 1:
+            raise ValueError("Mask percentage should be between 0 and 1.")
+
+        # Calculate the number of codons to be masked per batch
+        batch_size, sequence_length, codon_length = matrix.shape
+        num_codons_to_mask = math.ceil(self.mask_prob * (sequence_length))
+
+        #print(num_codons_to_mask)
+
+        # Create a flat mask with zeros (masked) and ones (not masked)
+        matrices = []
+
+         # Randomly choose codons to be masked for each batch
+        for batch in range(batch_size):
+            m = np.zeros((sequence_length, codon_length))
+            masked_codon_indices = np.random.choice(sequence_length, num_codons_to_mask)
+            m[masked_codon_indices, :] = 1
+            matrices.append(m)
+
+        # stack matrices for each batch into 1 matrix
+        mask = np.stack(matrices)
+        
+        # Apply the mask to the original matrix
+        masked_matrix = np.multiply(matrix, 1 - mask)
+
+        # Convert matrix back to tensor of floats
+        masked_matrix = masked_matrix.float()
+
+
+        #TODO: masking around ~1000 codons whereas only supposed to mask 191 * 4. could be do to unsequenced codons. Consistently getting 197 masked codons even with percentage of 0
+
+        #masked_decode = CodonDataset.decode(masked_matrix.numpy())
+        #print("masked sequence: ")
+        #print(*CodonDataset.decode(masked_matrix.numpy()), sep=", ")
+        #print(np.column_stack(np.where(masked_decode == 'MASKED')).shape)
+
+        return masked_matrix
