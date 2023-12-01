@@ -63,7 +63,8 @@ def evaluate(model_type, loader):
             model = MaskedRNNModel(
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
             )
-            criterion = custom_masked_loss
+            #criterion = custom_masked_loss
+            criterion = nn.CrossEntropyLoss()
         else:
             model = AutoregressiveRNNModel(
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
@@ -97,7 +98,7 @@ def evaluate(model_type, loader):
 
     model = best_params
     # criterion = nn.CrossEntropyLoss()
-    criterion = custom_masked_loss
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     test_loss, accuracy = model.eval(criterion, test_loader, predict=True)
 

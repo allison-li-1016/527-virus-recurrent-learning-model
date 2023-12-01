@@ -28,7 +28,20 @@ class MaskedRNNModel(nn.Module):
         hidden = torch.zeros(self.n_layers, batch_size, self.hidden_dim)
 
         unseq_mask = torch.sum(x, dim=2) == 0
-        unsequenced_inputs = x.masked_fill(unseq_mask, 0)
+
+        mask = np.zeros(x.shape)
+
+        # convert (batch, seq length) matrix to (batch, seq length, codon dict) matrix
+        for batch in range(unseq_mask.shape[0]):
+            nonzero_indices = np.nonzero(unseq_mask[batch])
+            mask[batch, nonzero_indices, :] = 1
+    
+        # convert np array to tensor
+        mask_tensor = torch.from_numpy(mask)
+        # convert double tensor to boolean tensor
+        mask_tensor = mask_tensor > 0 
+        # mask inputs with fill
+        unsequenced_inputs = x.masked_fill(mask_tensor, 0)
 
         mask = torch.rand(unsequenced_inputs.size()) < self.mask_prob
         masked_inputs = unsequenced_inputs.masked_fill(mask, -1)
@@ -42,11 +55,11 @@ class MaskedRNNModel(nn.Module):
 
         out = self.softmax(out)
 
-        return out, hidden_n, mask, unseq_mask
+        return out, hidden_n, mask_tensor
 
     def predict(self, x):
         with torch.no_grad():
-            logits, hidden, mask, unseq_mask = self(x)
+            logits, hidden, unseq_mask = self(x)
             _, predicted = torch.max(logits, dim=2)
             predicted_one_hot = nn.functional.one_hot(predicted, num_classes=64)
             return predicted_one_hot
@@ -60,9 +73,13 @@ class MaskedRNNModel(nn.Module):
             num_batches = 0
             for x, y in train_loader:
                 optimizer.zero_grad()  # Clears existing gradients from previous epoch
-                output, hidden, mask, unseq_mask = self(x)
-                print(output.size())
+                output, hidden, unseq_mask = self(x)
                 masked_y = y.masked_fill(unseq_mask, 0)
+                # swap dimension to be (batch, codon dict, seq length)
+                output = output.permute(0,2,1)
+                masked_y_one_hot = masked_y.permute(0,2,1)
+                # collapse y matrix along class dimension
+                masked_y  = np.argmax(masked_y_one_hot , axis=1)
                 loss = criterion(output, masked_y)
                 loss.backward()  # Does backpropagation and calculates gradients
                 epoch_loss += loss.item()
@@ -70,7 +87,7 @@ class MaskedRNNModel(nn.Module):
 
                 # Calculate accuracy
                 predicted_labels = torch.argmax(output, dim=0)
-                correct_predictions = (predicted_labels == y).sum().item()
+                correct_predictions = (predicted_labels == masked_y_one_hot).sum().item()
                 total_samples = np.prod(np.array(y.shape))
                 accuracy = correct_predictions / total_samples
                 # Calculate num_batches
@@ -102,13 +119,20 @@ class MaskedRNNModel(nn.Module):
         test_accuracy = 0
         with torch.no_grad():
             for x, y in data_loader:
-                outputs, hidden, mask, unseq_mask = self(x)
-                masked_y = y.masked_fill(unseq_mask, -1)
-                loss = criterion(outputs, masked_y=y.masked_fill(unseq_mask, 0))
+                outputs, hidden, unseq_mask = self(x)
+                masked_y = y.masked_fill(unseq_mask, 0)
+                # swap dimension to be (batch, codon dict, seq length)
+                outputs = outputs.permute(0,2,1)
+                masked_y_one_hot = masked_y.permute(0,2,1)
+                # collapse y matrix along class dimension
+                masked_y  = np.argmax(masked_y_one_hot , axis=1)
+                loss = criterion(outputs, masked_y)
                 test_loss += loss.item()
-                predicted = self.predict(x)
+                #TODO: look into predict method
+                #predicted = self.predict(x)
+                predicted = torch.argmax(outputs, dim=0)
                 total += np.prod(np.array(y.shape))
-                correct += (predicted == y).sum().item()
+                correct += (predicted == masked_y_one_hot).sum().item()
                 test_loss /= len(x)
                 test_accuracy = correct / total
 
