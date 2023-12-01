@@ -16,14 +16,14 @@ VERBOSE = True
 
 def main():
     path = "data/resulting-codons.txt"
-    codon_loader = CodonLoader(
-        path,
-        num_samples=20,
-        batch_size=32,
-        num_epochs=EPOCHS,
-        offset=True,
-        test_split=0.2,
-    )
+    # codon_loader = CodonLoader(
+    #     path,
+    #     num_samples=500,
+    #     batch_size=32,
+    #     num_epochs=EPOCHS,
+    #     offset=True,
+    #     test_split=0.2,
+    # )
 
     masked_codon_loader = CodonLoader(
         path,
@@ -101,11 +101,11 @@ def evaluate(model_type, loader):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     test_loss, accuracy = model.eval(criterion, test_loader, predict=True)
 
-    for x, y in test_loader:
-        print("actual:")
-        print(loader.decode_codons(y[0]))
-        print("predicted:")
-        print(loader.decode_codons(model.predict(x)[0]))
+    # for x, y in test_loader:
+    #     print("actual:")
+    #     print(loader.decode_codons(y[0]))
+    #     print("predicted:")
+    #     print(loader.decode_codons(model.predict(x)[0]))
 
     print(
         "Best model is : "

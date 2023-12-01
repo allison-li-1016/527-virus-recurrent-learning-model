@@ -91,6 +91,7 @@ class CodonDataset(Dataset):
 
             return encoded_codons, encoded_codons
 
+
 class CodonLoader:
     def __init__(
         self,
