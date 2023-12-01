@@ -27,7 +27,7 @@ def main():
 
     masked_codon_loader = CodonLoader(
         path,
-        num_samples=20,
+        num_samples=100,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=False,

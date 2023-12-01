@@ -20,7 +20,7 @@ class MaskedRNNModel(nn.Module):
         self.rnn = nn.RNN(input_size, hidden_dim, n_layers, batch_first=True)
         self.activation = nn.ReLU()
         self.fc = nn.Linear(hidden_dim, output_size)
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=2)
 
     def forward(self, x):
         batch_size = x.size(0)
