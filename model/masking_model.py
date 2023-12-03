@@ -64,7 +64,7 @@ class MaskedRNNModel(nn.Module):
             predicted_one_hot = nn.functional.one_hot(predicted, num_classes=64)
             return predicted_one_hot
 
-    def train(self, optimizer, criterion, train_loader, verbose=True):
+    def train(self, optimizer, criterion, train_loader):
         num_batches = 0
         epoch_loss = 0
         for x, y in train_loader:

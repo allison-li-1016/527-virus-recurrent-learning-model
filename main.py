@@ -27,7 +27,7 @@ def main():
 
     masked_codon_loader = CodonLoader(
         path,
-        num_samples=20,
+        num_samples=500,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=False,
@@ -44,7 +44,7 @@ def main():
 
 def evaluate(model_type, loader):
     train_loader, val_loader, test_loader = loader.data_loader()
-    
+
     # Define hyperparameters
     lr = 0.01
 

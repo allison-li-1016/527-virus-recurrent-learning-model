@@ -22,7 +22,9 @@ class AutoregressiveRNNModel(nn.Module):
             # default vanilla rnn
             self.rnn = nn.RNN(input_size, hidden_dim, n_layers, batch_first=True)
         # fully connected layer -> connect network to output labels
+        self.activation = nn.ReLU()
         self.fc = nn.Linear(hidden_dim, output_size)
+        self.softmax = nn.Softmax(dim=2)
 
     def forward(self, x):
         batch_size = x.size(0)
@@ -38,7 +40,9 @@ class AutoregressiveRNNModel(nn.Module):
         # Passing in the input and hidden state into the model and obtaining outputs
         out, hidden_n = self.rnn(x, hidden)
 
+        out = self.activation(out)
         out = self.fc(out)
+        out = self.softmax(out)
 
         # return output layer and hidden state (for training and RNN optimization)
         return out, hidden_n
@@ -49,6 +53,8 @@ class AutoregressiveRNNModel(nn.Module):
         for x, y in train_loader:
             optimizer.zero_grad()  # Clears existing gradients from previous epoch
             output, hidden = self(x)
+            output = output.permute(0,2,1)
+            y = y.permute(0,2,1)
             loss = criterion(output, y)
             loss.backward()  # Does backpropagation and calculates gradients
             epoch_loss += loss.item()
@@ -75,6 +81,8 @@ class AutoregressiveRNNModel(nn.Module):
         with torch.no_grad():
             for x, y in data_loader:
                 outputs, hidden= self(x)
+                outputs = outputs.permute(0,2,1)
+                y = y.permute(0,2,1)
                 loss = criterion(outputs, y)
                 test_loss += loss.item()
                 #TODO: look into predict method
