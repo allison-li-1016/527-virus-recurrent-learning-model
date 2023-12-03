@@ -27,7 +27,7 @@ def main():
 
     masked_codon_loader = CodonLoader(
         path,
-        num_samples=100,
+        num_samples=20,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=False,
@@ -56,6 +56,7 @@ def evaluate(model_type, loader):
     best_num_layers = 0
     best_loss = np.inf
     best_train_loss = []
+    best_val_loss = []
 
     for lt, hls in itertools.product(layer_types, hidden_layer_sizes):
         # TODO: not sure how not to hard code number of features values here
@@ -77,30 +78,63 @@ def evaluate(model_type, loader):
         print("layer type: " + lt)
         print("num hidden layers: " + str(hls))
 
-        train_loss = model.train(
-            optimizer, criterion, EPOCHS, train_loader, verbose=VERBOSE
-        )
-        val_loss, accuracy = model.eval(criterion, val_loader)
+        training_losses = []
+        validation_losses = []
 
-        if val_loss < best_loss:
-            best_loss = val_loss
-            best_params = model
-            best_model_name = lt
-            best_num_layers = hls
-            best_train_loss = train_loss
+        for epoch in range(EPOCHS):
+            epoch_resolution = max(1, EPOCHS // 10)
+            # train the model
+            train_loss, train_accuracy, train_total_samples = model.train(
+                optimizer, criterion, train_loader)
+            
+            
+            # validate the model
+            val_loss, val_accuracy, val_total_samples = model.eval(criterion, val_loader)
 
-        print(
-            f"train loss: {train_loss[-1]:.4f} | val loss: {val_loss:.4f} | val acc: {accuracy:.4f}"
-        )
+            if val_loss < best_loss:
+                best_loss = val_loss
+                best_params = model
+                best_model_name = lt
+                best_num_layers = hls
+                best_train_loss = training_losses
+                best_val_loss = validation_losses
+            
+            #printing stats
+            print("Epoch: {}/{}.............".format(epoch, EPOCHS), end=" ")
+            print()
+            if VERBOSE and (epoch % epoch_resolution == 0):
+                print(
+                    "Train Loss: {:.4f}, Train Accuracy: {:.2f}%".format(
+                        train_loss, train_accuracy * 100
+                    )
+                )
+                print("training correct labels: " + str(train_accuracy*train_total_samples))
+                print("training total samples: " + str(train_total_samples))
 
-        # TODO: val loss is now a single value and not a list since there is no training, can't rly plot it against training loss
-        plot_loss(train_loss, val_loss, lt, hls, model_type)
+                print(
+                    "Val Loss: {:.4f}, Val Accuracy: {:.2f}%".format(
+                        val_loss, val_accuracy * 100
+                    )
+                )
+                print("validation correct labels: " + str(val_accuracy*val_total_samples))
+                print("validation total samples: " + str(val_total_samples))
+                print()
+
+            print("Summary................")
+            print(
+                 f"train loss: {train_loss:.4f} | val loss: {val_loss:.4f} | val acc: {val_accuracy:.4f}"
+            )
+            print()
+
+            training_losses.append(train_loss)
+            validation_losses.append(val_loss)
+
+        plot_loss(training_losses, validation_losses, lt, hls, model_type)
 
     model = best_params
-    # criterion = nn.CrossEntropyLoss()
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    test_loss, accuracy = model.eval(criterion, test_loader, predict=True)
+    test_loss, test_accuracy, _ = model.eval(criterion, test_loader, predict=True)
 
     # for x, y in test_loader:
     #     print("actual:")
@@ -114,12 +148,12 @@ def evaluate(model_type, loader):
         + " with hidden layer size "
         + str(best_num_layers)
     )
-    print("test accuracy: " + str(accuracy * 100) + "%")
+    print("test accuracy: " + str(test_accuracy * 100) + "%")
     print("test loss: " + str(test_loss))
 
     plot_loss(
         best_train_loss,
-        test_loss,
+        best_val_loss,
         best_model_name,
         best_num_layers,
         model_type,
