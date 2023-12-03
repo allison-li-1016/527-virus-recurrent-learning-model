@@ -16,14 +16,14 @@ VERBOSE = True
 
 def main():
     path = "data/resulting-codons.txt"
-    # codon_loader = CodonLoader(
-    #     path,
-    #     num_samples=500,
-    #     batch_size=32,
-    #     num_epochs=EPOCHS,
-    #     offset=True,
-    #     test_split=0.2,
-    # )
+    codon_loader = CodonLoader(
+         path,
+         num_samples=500,
+         batch_size=32,
+         num_epochs=EPOCHS,
+         offset=True,
+         test_split=0.2,
+    )
 
     masked_codon_loader = CodonLoader(
         path,
@@ -34,7 +34,7 @@ def main():
         test_split=0.2,
     )
 
-    model_types = [("MASKED", masked_codon_loader)]
+    model_types = [("MASKED", masked_codon_loader), ("AUTOREGRESSIVE", codon_loader)]
 
     for m in model_types:
         model_type = m[0]
@@ -44,6 +44,7 @@ def main():
 
 def evaluate(model_type, loader):
     train_loader, val_loader, test_loader = loader.data_loader()
+    
     # Define hyperparameters
     lr = 0.01
 
