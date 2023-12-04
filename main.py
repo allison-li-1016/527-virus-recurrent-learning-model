@@ -48,7 +48,7 @@ def main():
 
 def load(model_type, loader):
     train_loader, val_loader, test_loader = loader.data_loader()
-    path = f"models/{model_type.lower()}/best-model.pt"
+    path = f"model_files/{model_type.lower()}/best-model.pt"
     #TODO: not sure how to not hard code parameters
     if model_type == "MASKED":
             model = MaskedRNNModel(
@@ -183,7 +183,7 @@ def evaluate(model_type, loader):
     )
 
     # save trained best modell
-    path = f"models/{model_type.lower()}/best-model.pt"
+    path = f"model_files/{model_type.lower()}/best-model.pt"
     # Extract the directory path from the filename
     directory = os.path.dirname(path)
     # Create the directory if it doesn't exist
