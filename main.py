@@ -12,13 +12,14 @@ import os
 
 EPOCHS = 10
 VERBOSE = True
+LOAD_BEST = False
 
 
 def main():
     path = "data/resulting-codons.txt"
     codon_loader = CodonLoader(
          path,
-         num_samples=500,
+         num_samples=20,
          batch_size=32,
          num_epochs=EPOCHS,
          offset=True,
@@ -27,7 +28,7 @@ def main():
 
     masked_codon_loader = CodonLoader(
         path,
-        num_samples=500,
+        num_samples=50,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=False,
@@ -39,8 +40,30 @@ def main():
     for m in model_types:
         model_type = m[0]
         loader = m[1]
-        evaluate(model_type, loader)
+        if not LOAD_BEST:
+            evaluate(model_type, loader)
+        else:
+            load(model_type, loader)
 
+
+def load(model_type, loader):
+    train_loader, val_loader, test_loader = loader.data_loader()
+    path = f"models/{model_type.lower()}/best-model.pt"
+    #TODO: not sure how to not hard code parameters
+    if model_type == "MASKED":
+            model = MaskedRNNModel(
+                layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
+            )
+            criterion = nn.CrossEntropyLoss()
+    else:
+            model = AutoregressiveRNNModel(
+                layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
+            )
+    model.load_state_dict(torch.load(path))
+    criterion = nn.CrossEntropyLoss()
+    test_loss, test_accuracy, _ = model.eval(criterion, test_loader, predict=True)
+    print(f"model: {model_type}")
+    print( f"test loss: {test_loss:.4f} | test acc: {test_accuracy:.4f}")
 
 def evaluate(model_type, loader):
     train_loader, val_loader, test_loader = loader.data_loader()
@@ -65,7 +88,6 @@ def evaluate(model_type, loader):
             model = MaskedRNNModel(
                 layer_type=lt, input_size=64, output_size=64, hidden_dim=hls, n_layers=1
             )
-            #criterion = custom_masked_loss
             criterion = nn.CrossEntropyLoss()
         else:
             model = AutoregressiveRNNModel(
@@ -134,7 +156,6 @@ def evaluate(model_type, loader):
 
     model = best_params
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     test_loss, test_accuracy, _ = model.eval(criterion, test_loader, predict=True)
 
     # for x, y in test_loader:
@@ -160,6 +181,15 @@ def evaluate(model_type, loader):
         model_type,
         best=True,
     )
+
+    # save trained best modell
+    path = f"models/{model_type.lower()}/best-model.pt"
+    # Extract the directory path from the filename
+    directory = os.path.dirname(path)
+    # Create the directory if it doesn't exist
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    torch.save(model.state_dict(), path)
 
 
 def plot_loss(train_loss, val_loss, model_name, num_layers, model_type, best=False):
