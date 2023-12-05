@@ -1,6 +1,8 @@
 import itertools
+import umap
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
 
 import torch
 import torch.nn as nn
@@ -10,25 +12,25 @@ from model.autoreg_model import AutoregressiveRNNModel
 from model.masking_model import MaskedRNNModel
 import os
 
-EPOCHS = 10
+EPOCHS = 5
 VERBOSE = True
-LOAD_BEST = False
+LOAD_BEST = True
 
 
 def main():
     path = "data/resulting-codons.txt"
     codon_loader = CodonLoader(
-         path,
-         num_samples=20,
-         batch_size=32,
-         num_epochs=EPOCHS,
-         offset=True,
-         test_split=0.2,
+        path,
+        num_samples=20,
+        batch_size=32,
+        num_epochs=EPOCHS,
+        offset=True,
+        test_split=0.2,
     )
 
     masked_codon_loader = CodonLoader(
         path,
-        num_samples=50,
+        num_samples=20,
         batch_size=32,
         num_epochs=EPOCHS,
         offset=False,
@@ -44,26 +46,177 @@ def main():
             evaluate(model_type, loader)
         else:
             load(model_type, loader)
+        break
 
 
 def load(model_type, loader):
     train_loader, val_loader, test_loader = loader.data_loader()
     path = f"model_files/{model_type.lower()}/best-model.pt"
-    #TODO: not sure how to not hard code parameters
+    # TODO: not sure how to not hard code parameters
     if model_type == "MASKED":
-            model = MaskedRNNModel(
-                layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
-            )
-            criterion = nn.CrossEntropyLoss()
+        model = MaskedRNNModel(
+            layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
+        )
+        criterion = nn.CrossEntropyLoss()
     else:
-            model = AutoregressiveRNNModel(
-                layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
-            )
+        model = AutoregressiveRNNModel(
+            layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
+        )
     model.load_state_dict(torch.load(path))
     criterion = nn.CrossEntropyLoss()
-    test_loss, test_accuracy, _ = model.eval(criterion, test_loader, predict=True)
+    test_loss, test_accuracy, total, probabilities = model.eval(criterion, test_loader)
     print(f"model: {model_type}")
-    print( f"test loss: {test_loss:.4f} | test acc: {test_accuracy:.4f}")
+    print(f"test loss: {test_loss:.4f} | test acc: {test_accuracy:.4f}")
+
+    """Plot UMAP of codon probabilities""" ""
+    flattened_probabilities = probabilities.reshape(-1, probabilities.shape[-1])
+    true_labels = torch.tensor([])
+    for x, y in test_loader:
+        true_labels = torch.cat((true_labels, y), dim=0)
+
+    flattened_labels = true_labels.reshape(-1, true_labels.shape[-1])
+    flattened_labels = torch.argmax(flattened_labels, dim=1)
+
+    umap_model = umap.UMAP(n_neighbors=5, min_dist=0.3, metric="correlation")
+    umap_embeddings = umap_model.fit_transform(flattened_probabilities)
+
+    codon_mapping = loader.encoder.get_feature_names_out()
+    codon_mapping = [codon[-3:] for codon in codon_mapping]
+
+    _, label_indices = torch.unique(flattened_labels, return_inverse=True)
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    scatter = plt.scatter(
+        umap_embeddings[:, 0],
+        umap_embeddings[:, 1],
+        c=flattened_labels,
+        cmap="Spectral",
+    )
+
+    legend_handles = [
+        Patch(color=scatter.cmap(scatter.norm(label)), label=f"{codon_mapping[label]}")
+        for label in np.unique(label_indices)
+    ]
+
+    plt.legend(
+        handles=legend_handles,
+        title="Codon Names",
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+        ncol=4,
+    )
+    plt.tight_layout()
+    plt.savefig("images/umap_codons.png")
+
+    """Plot UMAP of amino acids"""
+    codon_to_amino_acid_mapping = {
+        "AAA": "Lys",
+        "AAG": "Lys",
+        "AAC": "Asn",
+        "AAT": "Asn",
+        "ACA": "Thr",
+        "ACC": "Thr",
+        "ACG": "Thr",
+        "ACT": "Thr",
+        "AGA": "Arg",
+        "AGC": "Ser",
+        "AGG": "Arg",
+        "AGT": "Ser",
+        "ATA": "Ile",
+        "ATC": "Ile",
+        "ATG": "Met",
+        "ATT": "Ile",
+        "CAA": "Gln",
+        "CAG": "Gln",
+        "CAC": "His",
+        "CAT": "His",
+        "CCA": "Pro",
+        "CCC": "Pro",
+        "CCG": "Pro",
+        "CCT": "Pro",
+        "CGA": "Arg",
+        "CGC": "Arg",
+        "CGG": "Arg",
+        "CGT": "Arg",
+        "CTA": "Leu",
+        "CTC": "Leu",
+        "CTG": "Leu",
+        "CTT": "Leu",
+        "GAA": "Glu",
+        "GAG": "Glu",
+        "GAC": "Asp",
+        "GAT": "Asp",
+        "GCA": "Ala",
+        "GCC": "Ala",
+        "GCG": "Ala",
+        "GCT": "Ala",
+        "GGA": "Gly",
+        "GGC": "Gly",
+        "GGG": "Gly",
+        "GGT": "Gly",
+        "GTA": "Val",
+        "GTC": "Val",
+        "GTG": "Val",
+        "GTT": "Val",
+        "TAA": "STOP",
+        "TAG": "STOP",
+        "TAC": "Tyr",
+        "TAT": "Tyr",
+        "TCA": "Ser",
+        "TCC": "Ser",
+        "TCG": "Ser",
+        "TCT": "Ser",
+        "TGA": "STOP",
+        "TGC": "Cys",
+        "TGG": "Trp",
+        "TGT": "Cys",
+        "TTA": "Leu",
+        "TTC": "Phe",
+        "TTG": "Leu",
+        "TTT": "Phe",
+    }
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    flattened_labels = [codon_mapping[codon] for codon in flattened_labels]
+    amino_acids = [codon_to_amino_acid_mapping[codon] for codon in flattened_labels]
+    amino_acid_to_index = {
+        amino_acid: i for i, amino_acid in enumerate(set(amino_acids))
+    }
+    indexed_amino_acids = [
+        amino_acid_to_index[amino_acid] for amino_acid in amino_acids
+    ]
+
+    scatter = plt.scatter(
+        umap_embeddings[:, 0],
+        umap_embeddings[:, 1],
+        c=indexed_amino_acids,
+        cmap="Spectral",
+    )
+
+    _, label_indices = torch.unique(
+        torch.tensor(indexed_amino_acids), return_inverse=True
+    )
+    legend_handles = [
+        Patch(
+            color=scatter.cmap(scatter.norm(label)),
+            label=f"{list(amino_acid_to_index.keys())[label]}",
+        )
+        for label in np.unique(label_indices)
+    ]
+
+    plt.legend(
+        handles=legend_handles,
+        title="Amino Acids",
+        bbox_to_anchor=(1.05, 1),
+        loc="upper left",
+        ncol=2,
+    )
+    plt.tight_layout()
+
+    plt.savefig("images/umap_amino_acids.png")
+
 
 def evaluate(model_type, loader):
     train_loader, val_loader, test_loader = loader.data_loader()
@@ -108,11 +261,13 @@ def evaluate(model_type, loader):
             epoch_resolution = max(1, EPOCHS // 10)
             # train the model
             train_loss, train_accuracy, train_total_samples = model.train(
-                optimizer, criterion, train_loader)
-            
-            
+                optimizer, criterion, train_loader
+            )
+
             # validate the model
-            val_loss, val_accuracy, val_total_samples = model.eval(criterion, val_loader)
+            val_loss, val_accuracy, val_total_samples, _ = model.eval(
+                criterion, val_loader
+            )
 
             if val_loss < best_loss:
                 best_loss = val_loss
@@ -121,8 +276,8 @@ def evaluate(model_type, loader):
                 best_num_layers = hls
                 best_train_loss = training_losses
                 best_val_loss = validation_losses
-            
-            #printing stats
+
+            # printing stats
             print("Epoch: {}/{}.............".format(epoch, EPOCHS), end=" ")
             print()
             if VERBOSE and (epoch % epoch_resolution == 0):
@@ -131,7 +286,10 @@ def evaluate(model_type, loader):
                         train_loss, train_accuracy * 100
                     )
                 )
-                print("training correct labels: " + str(train_accuracy*train_total_samples))
+                print(
+                    "training correct labels: "
+                    + str(train_accuracy * train_total_samples)
+                )
                 print("training total samples: " + str(train_total_samples))
 
                 print(
@@ -139,13 +297,16 @@ def evaluate(model_type, loader):
                         val_loss, val_accuracy * 100
                     )
                 )
-                print("validation correct labels: " + str(val_accuracy*val_total_samples))
+                print(
+                    "validation correct labels: "
+                    + str(val_accuracy * val_total_samples)
+                )
                 print("validation total samples: " + str(val_total_samples))
                 print()
 
             print("Summary................")
             print(
-                 f"train loss: {train_loss:.4f} | val loss: {val_loss:.4f} | val acc: {val_accuracy:.4f}"
+                f"train loss: {train_loss:.4f} | val loss: {val_loss:.4f} | val acc: {val_accuracy:.4f}"
             )
             print()
 
@@ -156,13 +317,7 @@ def evaluate(model_type, loader):
 
     model = best_params
     criterion = nn.CrossEntropyLoss()
-    test_loss, test_accuracy, _ = model.eval(criterion, test_loader, predict=True)
-
-    # for x, y in test_loader:
-    #     print("actual:")
-    #     print(loader.decode_codons(y[0]))
-    #     print("predicted:")
-    #     print(loader.decode_codons(model.predict(x)[0]))
+    test_loss, test_accuracy, _, probabilities = model.eval(criterion, test_loader)
 
     print(
         "Best model is : "
@@ -182,11 +337,9 @@ def evaluate(model_type, loader):
         best=True,
     )
 
-    # save trained best modell
+    # Save best model
     path = f"model_files/{model_type.lower()}/best-model.pt"
-    # Extract the directory path from the filename
     directory = os.path.dirname(path)
-    # Create the directory if it doesn't exist
     if not os.path.exists(directory):
         os.makedirs(directory)
     torch.save(model.state_dict(), path)

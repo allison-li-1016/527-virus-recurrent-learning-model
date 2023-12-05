@@ -35,11 +35,11 @@ class MaskedRNNModel(nn.Module):
         for batch in range(unseq_mask.shape[0]):
             nonzero_indices = np.nonzero(unseq_mask[batch])
             mask[batch, nonzero_indices, :] = 1
-    
+
         # convert np array to tensor
         mask_tensor = torch.from_numpy(mask)
         # convert double tensor to boolean tensor
-        mask_tensor = mask_tensor > 0 
+        mask_tensor = mask_tensor > 0
         # mask inputs with fill
         unsequenced_inputs = x.masked_fill(mask_tensor, 0)
 
@@ -57,13 +57,6 @@ class MaskedRNNModel(nn.Module):
 
         return out, hidden_n, mask_tensor
 
-    def predict(self, x):
-        with torch.no_grad():
-            logits, hidden, unseq_mask = self(x)
-            _, predicted = torch.max(logits, dim=2)
-            predicted_one_hot = nn.functional.one_hot(predicted, num_classes=64)
-            return predicted_one_hot
-
     def train(self, optimizer, criterion, train_loader):
         num_batches = 0
         epoch_loss = 0
@@ -72,10 +65,10 @@ class MaskedRNNModel(nn.Module):
             output, hidden, unseq_mask = self(x)
             masked_y = y.masked_fill(unseq_mask, 0)
             # swap dimension to be (batch, codon dict, seq length)
-            output = output.permute(0,2,1)
-            masked_y_one_hot = masked_y.permute(0,2,1)
+            output = output.permute(0, 2, 1)
+            masked_y_one_hot = masked_y.permute(0, 2, 1)
             # collapse y matrix along class dimension
-            masked_y  = np.argmax(masked_y_one_hot , axis=1)
+            masked_y = np.argmax(masked_y_one_hot, axis=1)
             loss = criterion(output, masked_y)
             loss.backward()  # Does backpropagation and calculates gradients
             epoch_loss += loss.item()
@@ -88,36 +81,36 @@ class MaskedRNNModel(nn.Module):
             accuracy = correct_predictions / total_samples
             # Calculate num_batches
             num_batches += 1
-        loss = epoch_loss/num_batches
+        loss = epoch_loss / num_batches
         return loss, accuracy, total_samples
 
-    def eval(self, criterion, data_loader, predict=False):
+    def eval(self, criterion, data_loader):
         # accuracy and loss on test set
         test_loss = 0
         correct = 0
         total = 0
         test_accuracy = 0
         test_loss = 0
+        full_outputs = torch.tensor([])
         with torch.no_grad():
             for x, y in data_loader:
                 outputs, hidden, unseq_mask = self(x)
+                full_outputs = torch.cat((full_outputs, outputs), dim=0)
                 masked_y = y.masked_fill(unseq_mask, 0)
                 # swap dimension to be (batch, codon dict, seq length)
-                outputs = outputs.permute(0,2,1)
-                masked_y_one_hot = masked_y.permute(0,2,1)
+                outputs = outputs.permute(0, 2, 1)
+                masked_y_one_hot = masked_y.permute(0, 2, 1)
                 # collapse y matrix along class dimension
-                masked_y  = np.argmax(masked_y_one_hot , axis=1)
+                masked_y = np.argmax(masked_y_one_hot, axis=1)
                 loss = criterion(outputs, masked_y)
                 test_loss += loss.item()
-                #TODO: look into predict method
-                #predicted = self.predict(x)
                 predicted = torch.argmax(outputs, dim=0)
                 total += np.prod(np.array(y.shape))
                 correct += (predicted == masked_y_one_hot).sum().item()
                 test_accuracy = correct / total
             test_loss /= len(data_loader)
 
-        return test_loss, test_accuracy, total
+        return test_loss, test_accuracy, total, full_outputs
 
     def masked_entropy_loss(self, x, y, mask):
         # Obtaining dimensions of input matrix
