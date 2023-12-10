@@ -53,17 +53,15 @@ class AutoregressiveRNNModel(nn.Module):
         for x, y in train_loader:
             optimizer.zero_grad()  # Clears existing gradients from previous epoch
             output, hidden = self(x)
-            output = output.permute(0,2,1)
-            y = y.permute(0,2,1)
+            output = output.permute(0, 2, 1)
+            y = y.permute(0, 2, 1)
             loss = criterion(output, y)
             loss.backward()  # Does backpropagation and calculates gradients
             epoch_loss += loss.item()
             optimizer.step()  # Updates the weights accordingly
             # Calculate accuracy
             predicted_labels = torch.argmax(output, dim=0)
-            correct_predictions = (
-                (predicted_labels == y).sum().item()
-            )  
+            correct_predictions = (predicted_labels == y).sum().item()
             total_samples = np.prod(np.array(y.shape))
             accuracy = correct_predictions / total_samples
             # Calculate num_batches
@@ -78,19 +76,21 @@ class AutoregressiveRNNModel(nn.Module):
         total = 0
         test_accuracy = 0
         test_loss = 0
+        full_outputs = torch.tensor([])
         with torch.no_grad():
             for x, y in data_loader:
-                outputs, hidden= self(x)
-                outputs = outputs.permute(0,2,1)
-                y = y.permute(0,2,1)
+                outputs, hidden = self(x)
+                full_outputs = torch.cat((full_outputs, outputs), dim=0)
+                outputs = outputs.permute(0, 2, 1)
+                y = y.permute(0, 2, 1)
                 loss = criterion(outputs, y)
                 test_loss += loss.item()
-                #TODO: look into predict method
-                #predicted = self.predict(x)
+                # TODO: look into predict method
+                # predicted = self.predict(x)
                 predicted = torch.argmax(outputs, dim=0)
                 total += np.prod(np.array(y.shape))
-                correct += (predicted == y ).sum().item()
+                correct += (predicted == y).sum().item()
                 test_accuracy = correct / total
             test_loss /= len(data_loader)
 
-        return test_loss, test_accuracy, total
+        return test_loss, test_accuracy, total, full_outputs

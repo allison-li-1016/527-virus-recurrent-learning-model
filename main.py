@@ -46,7 +46,6 @@ def main():
             evaluate(model_type, loader)
         else:
             load(model_type, loader)
-        break
 
 
 def load(model_type, loader):
@@ -60,7 +59,7 @@ def load(model_type, loader):
         criterion = nn.CrossEntropyLoss()
     else:
         model = AutoregressiveRNNModel(
-            layer_type="RNN", input_size=64, output_size=64, hidden_dim=32, n_layers=1
+            layer_type="GRU", input_size=64, output_size=64, hidden_dim=512, n_layers=1
         )
     model.load_state_dict(torch.load(path))
     criterion = nn.CrossEntropyLoss()
@@ -68,7 +67,7 @@ def load(model_type, loader):
     print(f"model: {model_type}")
     print(f"test loss: {test_loss:.4f} | test acc: {test_accuracy:.4f}")
 
-    """Plot UMAP of codon probabilities""" ""
+    """Plot UMAP of codon probabilities"""
     flattened_probabilities = probabilities.reshape(-1, probabilities.shape[-1])
     true_labels = torch.tensor([])
     for x, y in test_loader:
@@ -107,7 +106,7 @@ def load(model_type, loader):
         ncol=4,
     )
     plt.tight_layout()
-    plt.savefig("images/umap_codons.png")
+    plt.savefig(f"images/{model_type}_umap_codons.png")
 
     """Plot UMAP of amino acids"""
     codon_to_amino_acid_mapping = {
@@ -177,8 +176,6 @@ def load(model_type, loader):
         "TTT": "Phe",
     }
 
-    fig, ax = plt.subplots(figsize=(12, 8))
-
     flattened_labels = [codon_mapping[codon] for codon in flattened_labels]
     amino_acids = [codon_to_amino_acid_mapping[codon] for codon in flattened_labels]
     amino_acid_to_index = {
@@ -215,7 +212,7 @@ def load(model_type, loader):
     )
     plt.tight_layout()
 
-    plt.savefig("images/umap_amino_acids.png")
+    plt.savefig(f"images/{model_type}_umap_amino_acids.png")
 
 
 def evaluate(model_type, loader):
