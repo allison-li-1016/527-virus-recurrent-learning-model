@@ -49,4 +49,33 @@ Run expedited workflow for Windows Users
 </p>
 
 ## Data Curation
-All sequence data is from Genbank. We filtered for human coronavirus genomes that are at least 80% complete. 
+All sequence data is from Genbank. We filtered for human coronavirus genomes that are at least 80% sequenced in the given gene of interest.
+
+## Model Architecture and Pre-Training
+### Model Design 
+We built a very simple recurrent neural network architecture that involves a RNN layer, a ReLU activation function, a fully connected layer to map to the number of features that we have, and a softmax layer to get the probabilities. The type of RNN layer, hidden layer size, and number of layers for the RNN layer can be tuned as hyperparameters.
+
+
+<p align="center">
+     <img src="images/model-architecture.png" alt="diagram of the model layers" width="600"/>
+</p>
+
+### Pre-training Techniques
+We have two different types of model to represent each pre-training technique that we used to assess pre-training effects on model performance. 
+The masked language modeling approach randomly masks a given percentage of the input sequence (15 percent by default). The model takes the masked input sequence, and predicts for the original unmasked sequence. 
+
+<p align="center">
+     <img src="images/masked.png" alt="diagram of the model layers" width="600"/>
+</p>
+
+In the autoregressive model, for every codon in the sequence, the model tries to predict for the next codon in the sequence. The input of the model would be the original sequence, and the predicted output would be the sequence shifted by one. This is similar to N-grams. 
+
+<p align="center">
+     <img src="images/autoregressive.png" alt="diagram of the model layers" width="600"/>
+</p>
+
+### Running the model
+
+To run a hyperparameter grid search of the models:
+
+`python main.py`
