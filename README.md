@@ -79,3 +79,6 @@ In the autoregressive model, for every codon in the sequence, the model tries to
 To run a hyperparameter grid search of the models:
 
 `python main.py`
+
+## Paper
+Experiments ran with this model and subsequent results can be viewed within this [final report linked here](https://drive.google.com/file/d/1n7V0kR3fg1HvK_lpSMG0ikOYdubCQBsa/view?usp=sharing). 
